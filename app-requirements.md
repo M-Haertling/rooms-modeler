@@ -35,6 +35,7 @@
     * Type (user can define types that are shared between objects for grouping/classification) - e.g. Chair, Sofa, Table, etc.
     * Owned - a boolean that indicates if the object is owned (already purchased); this is used if the object represents furniture to differenciate between proposed and owned
     * Cost ($)
+    * Images - user can attach images to the object
 * Point attributes
     * Snapping - determines if a point will snap to other points that also have snapping enabled
         * If they are close enough together when moving the object, the object will move so that the points perfectly overlap
@@ -50,6 +51,9 @@
         * Ask the user for a name
 
 # UI
+* Create one or more models
+    * A model is a sqlite db file
+    * Opening a model is to select a sqlite db
 * All catalogs are searchable
 * Object catalog - a list of all object in the canvas
 * Template catalog
