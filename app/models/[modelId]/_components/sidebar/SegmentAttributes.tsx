@@ -22,10 +22,13 @@ export default function SegmentAttributes({ segmentId }: Props) {
 
   const [lengthInput, setLengthInput] = useState("");
   const [editingLength, setEditingLength] = useState(false);
+  const [angleInput, setAngleInput] = useState("");
+  const [editingAngle, setEditingAngle] = useState(false);
 
   if (!seg || !ptA || !ptB) return null;
 
   const len = distance({ x: ptA.x, y: ptA.y }, { x: ptB.x, y: ptB.y });
+  const angleDeg = (Math.atan2(ptB.y - ptA.y, ptB.x - ptA.x) * 180) / Math.PI;
 
   async function toggleLocked() {
     storeUpdateSegment(segmentId, { locked: !seg.locked });
@@ -35,6 +38,24 @@ export default function SegmentAttributes({ segmentId }: Props) {
   async function toggleTransparent() {
     storeUpdateSegment(segmentId, { transparent: !seg.transparent });
     await updateSegment(modelId, segmentId, { transparent: !seg.transparent });
+  }
+
+  async function applyAngle() {
+    const newAngleDeg = parseFloat(angleInput);
+    if (isNaN(newAngleDeg)) return;
+
+    const newAngleRad = (newAngleDeg * Math.PI) / 180;
+    const newDir = { x: Math.cos(newAngleRad), y: Math.sin(newAngleRad) };
+    if (!ptB!.locked) {
+      const newB = add({ x: ptA!.x, y: ptA!.y }, scale(newDir, len));
+      movePoint(seg.pointBId, newB.x, newB.y);
+      await updatePoint(modelId, seg.pointBId, newB.x, newB.y);
+    } else if (!ptA!.locked) {
+      const newA = subtract({ x: ptB!.x, y: ptB!.y }, scale(newDir, len));
+      movePoint(seg.pointAId, newA.x, newA.y);
+      await updatePoint(modelId, seg.pointAId, newA.x, newA.y);
+    }
+    setEditingAngle(false);
   }
 
   async function applyLength() {
@@ -103,6 +124,33 @@ export default function SegmentAttributes({ segmentId }: Props) {
               disabled={ptA.locked && ptB.locked}
             >
               {formatLength(len, unit)}
+              {ptA.locked && ptB.locked && <span className="ml-2 opacity-50">(both locked)</span>}
+            </button>
+          )}
+        </div>
+
+        <div>
+          <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Angle (°)</label>
+          {editingAngle ? (
+            <div className="flex gap-1">
+              <input
+                autoFocus
+                value={angleInput}
+                onChange={(e) => setAngleInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") applyAngle(); if (e.key === "Escape") setEditingAngle(false); }}
+                className="flex-1 px-2 py-1 rounded text-xs outline-none"
+                style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+              />
+              <button onClick={applyAngle} className="px-2 py-1 rounded text-xs" style={{ background: "var(--accent)", color: "#fff" }}>✓</button>
+            </div>
+          ) : (
+            <button
+              className="w-full text-left px-2 py-1 rounded text-xs"
+              style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
+              onClick={() => { setAngleInput(angleDeg.toFixed(2)); setEditingAngle(true); }}
+              disabled={ptA.locked && ptB.locked}
+            >
+              {angleDeg.toFixed(2)}°
               {ptA.locked && ptB.locked && <span className="ml-2 opacity-50">(both locked)</span>}
             </button>
           )}
