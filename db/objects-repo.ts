@@ -51,6 +51,7 @@ export function rowToSegment(r: DbRow): CanvasSegment {
     pointBId: r.point_b_id as string,
     name: (r.name as string | null) ?? null,
     locked: Boolean(r.locked),
+    transparent: Boolean(r.transparent),
   };
 }
 
@@ -114,7 +115,7 @@ export function dbCreateObject(
       db.prepare(
         "INSERT INTO segments (id, object_id, point_a_id, point_b_id) VALUES (?, ?, ?, ?)"
       ).run(sid, objId, a.id, b.id);
-      createdSegments.push({ id: sid, objectId: objId, pointAId: a.id, pointBId: b.id, name: null, locked: false });
+      createdSegments.push({ id: sid, objectId: objId, pointAId: a.id, pointBId: b.id, name: null, locked: false, transparent: false });
     }
   }
 
@@ -179,12 +180,14 @@ export function dbDeleteObject(db: DatabaseSync, objectId: string): void {
 export function dbUpdateSegment(
   db: DatabaseSync,
   segmentId: string,
-  fields: { name?: string | null; locked?: boolean }
+  fields: { name?: string | null; locked?: boolean; transparent?: boolean }
 ): void {
   if (fields.name !== undefined)
     db.prepare("UPDATE segments SET name = ? WHERE id = ?").run(fields.name, segmentId);
   if (fields.locked !== undefined)
     db.prepare("UPDATE segments SET locked = ? WHERE id = ?").run(fields.locked ? 1 : 0, segmentId);
+  if (fields.transparent !== undefined)
+    db.prepare("UPDATE segments SET transparent = ? WHERE id = ?").run(fields.transparent ? 1 : 0, segmentId);
 }
 
 export function dbSplitSegment(
@@ -218,8 +221,8 @@ export function dbSplitSegment(
 
   return {
     newPoint: { id: midId, objectId: seg.object_id as string, x: mx, y: my, locked: false, snapping: true, sortOrder: newSortOrder },
-    segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false },
-    segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false },
+    segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false, transparent: false },
+    segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false, transparent: false },
   };
 }
 
@@ -242,7 +245,7 @@ export function dbDeletePoint(
       const sid = nanoid();
       const [a, b] = neighborIds;
       db.prepare("INSERT INTO segments (id, object_id, point_a_id, point_b_id) VALUES (?, ?, ?, ?)").run(sid, pt.object_id as string, a, b);
-      newSegment = { id: sid, objectId: pt.object_id as string, pointAId: a, pointBId: b, name: null, locked: false };
+      newSegment = { id: sid, objectId: pt.object_id as string, pointAId: a, pointBId: b, name: null, locked: false, transparent: false };
     }
     db.exec("COMMIT");
   } catch (e) {

@@ -43,7 +43,7 @@ export async function saveTemplate(
   const segments: CanvasSegment[] = rawSegments.map((r) => ({
     id: r.id as string, objectId: r.object_id as string,
     pointAId: r.point_a_id as string, pointBId: r.point_b_id as string,
-    name: (r.name as string | null) ?? null, locked: Boolean(r.locked),
+    name: (r.name as string | null) ?? null, locked: Boolean(r.locked), transparent: Boolean(r.transparent),
   }));
 
   const normalizedData = normalizeObject(points, segments);
@@ -104,7 +104,7 @@ export async function instantiateFromTemplate(
       const aId = pointIdMap.get(s.pointAId)!;
       const bId = pointIdMap.get(s.pointBId)!;
       db.prepare("INSERT INTO segments (id, object_id, point_a_id, point_b_id, name) VALUES (?, ?, ?, ?, ?)").run(sid, objId, aId, bId, s.name);
-      createdSegments.push({ id: sid, objectId: objId, pointAId: aId, pointBId: bId, name: s.name, locked: false });
+      createdSegments.push({ id: sid, objectId: objId, pointAId: aId, pointBId: bId, name: s.name, locked: false, transparent: false });
     }
 
     db.exec("COMMIT");

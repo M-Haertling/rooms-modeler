@@ -40,24 +40,26 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
   const midY = (ptA.y + ptB.y) / 2;
 
   const stroke = isSelected
-    ? "#6c63ff"
+    ? (seg.transparent ? "#22c55e" : "#6c63ff")
     : seg.locked
     ? "#ff9944"
     : isParentSelected
     ? "rgba(108,99,255,0.5)"
     : "transparent";
 
+  const showLine = !seg.transparent || isSelected;
+
   return (
     <g>
       {/* Visible line */}
-      <line
+      {showLine && <line
         x1={ptA.x} y1={ptA.y}
         x2={ptB.x} y2={ptB.y}
         stroke={stroke}
         strokeWidth={isSelected ? 2 / zoom : 1.5 / zoom}
         strokeDasharray={seg.locked ? `${4 / zoom},${3 / zoom}` : undefined}
         style={{ pointerEvents: "none" }}
-      />
+      />}
       {/* Fat invisible hit area */}
       <line
         x1={ptA.x} y1={ptA.y}

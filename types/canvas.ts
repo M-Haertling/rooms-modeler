@@ -22,6 +22,7 @@ export interface CanvasSegment {
   pointBId: string;
   name: string | null;
   locked: boolean;
+  transparent: boolean;
 }
 
 export interface CustomDim {

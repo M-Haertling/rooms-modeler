@@ -127,16 +127,23 @@ export default function StandardObject({ objectId }: Props) {
         />
       ))}
 
-      {/* Object outline (always visible) */}
-      {objPoints.length >= 2 && (
-        <polygon
-          points={polygonPoints}
-          fill="none"
-          stroke={obj.lineColor}
-          strokeWidth={obj.lineThickness / 50}
-          style={{ pointerEvents: "none" }}
-        />
-      )}
+      {/* Object outline — one line per segment so transparent ones are skipped */}
+      {objSegments.map((seg) => {
+        if (seg.transparent) return null;
+        const pA = allPoints[seg.pointAId];
+        const pB = allPoints[seg.pointBId];
+        if (!pA || !pB) return null;
+        return (
+          <line
+            key={`outline-${seg.id}`}
+            x1={pA.x} y1={pA.y}
+            x2={pB.x} y2={pB.y}
+            stroke={obj.lineColor}
+            strokeWidth={obj.lineThickness / 50}
+            style={{ pointerEvents: "none" }}
+          />
+        );
+      })}
 
       {/* Dimension labels */}
       {obj.showDimensions && objSegments.map((seg) => {

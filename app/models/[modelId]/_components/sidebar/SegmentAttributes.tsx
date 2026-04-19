@@ -32,6 +32,11 @@ export default function SegmentAttributes({ segmentId }: Props) {
     await updateSegment(modelId, segmentId, { locked: !seg.locked });
   }
 
+  async function toggleTransparent() {
+    storeUpdateSegment(segmentId, { transparent: !seg.transparent });
+    await updateSegment(modelId, segmentId, { transparent: !seg.transparent });
+  }
+
   async function applyLength() {
     const newLen = parseFloat(lengthInput);
     if (isNaN(newLen) || newLen <= 0) return;
@@ -111,6 +116,17 @@ export default function SegmentAttributes({ segmentId }: Props) {
             style={{ background: seg.locked ? "var(--accent)" : "var(--border)" }}
           >
             <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.locked ? "calc(100% - 18px)" : "2px" }} />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--text)" }}>Transparent (door/opening)</span>
+          <button
+            onClick={toggleTransparent}
+            className="w-10 h-5 rounded-full relative transition-colors"
+            style={{ background: seg.transparent ? "#22c55e" : "var(--border)" }}
+          >
+            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.transparent ? "calc(100% - 18px)" : "2px" }} />
           </button>
         </div>
 
