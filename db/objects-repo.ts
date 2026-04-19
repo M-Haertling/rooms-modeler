@@ -92,9 +92,9 @@ export function dbCreateObject(
   const now = Date.now();
 
   db.prepare(
-    `INSERT INTO objects (id, project_id, layer_id, name, kind, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(objId, params.projectId, params.layerId, params.name, params.kind, now);
+    `INSERT INTO objects (id, project_id, layer_id, name, kind, line_color, fill_enabled, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(objId, params.projectId, params.layerId, params.name, params.kind, "#ffffff", 0, now);
 
   const createdPoints: CanvasPoint[] = [];
   for (let i = 0; i < params.points.length; i++) {
