@@ -18,7 +18,10 @@ Each model is a separate `.db` file stored in `~/rooms-models/` (override with `
 ## Key directories
 ```
 db/             schema.sql + client.ts (singleton DB connection per file path)
+                objects-repo.ts — pure DB functions accepting DatabaseSync (testable without Next.js)
+                __tests__/      unit tests for objects-repo.ts
 actions/        Server Actions: models, objects, layers, templates, types, images
+                (thin wrappers over db/objects-repo.ts — call getDb then delegate)
 store/          Zustand store (index.ts) — single file with all slices
 lib/            geometry.ts, units.ts, lasso.ts, normalize.ts, cn.ts
 types/          canvas.ts — all shared TypeScript types
@@ -51,9 +54,17 @@ Zustand is the UI source of truth. Every mutation fires a server action (fire-an
 
 ```bash
 npm run dev     # start dev server at http://localhost:3000
+npm test        # run vitest unit tests (once)
+npm run test:watch  # vitest in watch mode
 ```
 
 The `node:sqlite` experimental warning from Node 24 is cosmetic — ignore it.
+
+# Testing
+
+Unit tests live in `db/__tests__/` and use **vitest** with an in-memory SQLite DB (`:memory:`). Tests import directly from `db/objects-repo.ts` — no Next.js runtime, no file I/O. Each test gets a fresh DB via `makeDb()` which applies `db/schema.sql`.
+
+When adding new DB operations, put the logic in `db/objects-repo.ts` as a plain `db<FunctionName>(db: DatabaseSync, ...)` function, add a thin wrapper in `actions/`, and add tests in `db/__tests__/`.
 
 # Notes
 
