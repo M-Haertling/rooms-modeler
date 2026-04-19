@@ -102,7 +102,17 @@ export default function ObjectAttributes({ objectId }: Props) {
             <input type="color" value={obj.lineColor} onChange={(e) => patch({ lineColor: e.target.value })} className="w-full h-7 rounded cursor-pointer" style={{ background: "none", border: "1px solid var(--border)" }} />
           </Field>
           <Field label="Fill color">
-            <input type="color" value={obj.fillColor} onChange={(e) => patch({ fillColor: e.target.value })} className="w-full h-7 rounded cursor-pointer" style={{ background: "none", border: "1px solid var(--border)" }} />
+            <div className="flex gap-1 items-center">
+              <input
+                type="color"
+                value={obj.fillColor}
+                onChange={(e) => patch({ fillColor: e.target.value })}
+                disabled={!obj.fillEnabled}
+                className="flex-1 h-7 rounded cursor-pointer"
+                style={{ background: "none", border: "1px solid var(--border)", opacity: obj.fillEnabled ? 1 : 0.4 }}
+              />
+              <Toggle value={obj.fillEnabled} onChange={() => patch({ fillEnabled: !obj.fillEnabled })} />
+            </div>
           </Field>
         </div>
         <Field label="Line thickness">
@@ -111,6 +121,10 @@ export default function ObjectAttributes({ objectId }: Props) {
       </PanelSection>
 
       <PanelSection title="Dimensions">
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--text)" }}>Show dimensions</span>
+          <Toggle value={obj.showDimensions} onChange={() => patch({ showDimensions: !obj.showDimensions })} />
+        </div>
         <Field label="Height (3D)">
           <input type="number" defaultValue={obj.height3d ?? ""} onBlur={(e) => patch({ height3d: parseFloat(e.target.value) || null })} className={inputCls} style={inputStyle} placeholder="Optional" />
         </Field>

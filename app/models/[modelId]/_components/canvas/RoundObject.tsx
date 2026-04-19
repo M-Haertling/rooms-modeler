@@ -188,7 +188,7 @@ export default function RoundObject({ objectId }: Props) {
       <ellipse
         ref={ellipseRef}
         cx={cx} cy={cy} rx={rx} ry={ry}
-        fill={obj.fillColor}
+        fill={obj.fillEnabled ? obj.fillColor : "none"}
         stroke={obj.lineColor}
         strokeWidth={obj.lineThickness / 50}
         opacity={0.85}

@@ -8,6 +8,7 @@ import {
   dbUpdatePointFields,
   dbUpdateObject,
   dbDeleteObject,
+  dbDeletePoint,
   dbUpdateSegment,
   dbSplitSegment,
   dbDuplicateObject,
@@ -15,7 +16,7 @@ import {
 import type { CanvasObject, CanvasPoint, CanvasSegment } from "@/types/canvas";
 
 export async function loadProjectData(modelId: string) {
-  return dbLoadProjectData(getDb(resolveModelPath(modelId)));
+  return dbLoadProjectData(await getDb(resolveModelPath(modelId)));
 }
 
 export async function createObject(
@@ -28,7 +29,7 @@ export async function createObject(
     points: { x: number; y: number }[];
   }
 ): Promise<{ object: CanvasObject; points: CanvasPoint[]; segments: CanvasSegment[] }> {
-  return dbCreateObject(getDb(resolveModelPath(modelId)), params);
+  return dbCreateObject(await getDb(resolveModelPath(modelId)), params);
 }
 
 export async function updatePoint(
@@ -37,7 +38,7 @@ export async function updatePoint(
   x: number,
   y: number
 ): Promise<void> {
-  dbUpdatePoint(getDb(resolveModelPath(modelId)), pointId, x, y);
+  dbUpdatePoint(await getDb(resolveModelPath(modelId)), pointId, x, y);
 }
 
 export async function updateObject(
@@ -45,11 +46,11 @@ export async function updateObject(
   objectId: string,
   fields: Partial<Omit<CanvasObject, "id" | "projectId" | "kind">>
 ): Promise<void> {
-  dbUpdateObject(getDb(resolveModelPath(modelId)), objectId, fields);
+  dbUpdateObject(await getDb(resolveModelPath(modelId)), objectId, fields);
 }
 
 export async function deleteObject(modelId: string, objectId: string): Promise<void> {
-  dbDeleteObject(getDb(resolveModelPath(modelId)), objectId);
+  dbDeleteObject(await getDb(resolveModelPath(modelId)), objectId);
 }
 
 export async function updatePoint2(
@@ -57,7 +58,14 @@ export async function updatePoint2(
   pointId: string,
   fields: { locked?: boolean; snapping?: boolean }
 ): Promise<void> {
-  dbUpdatePointFields(getDb(resolveModelPath(modelId)), pointId, fields);
+  dbUpdatePointFields(await getDb(resolveModelPath(modelId)), pointId, fields);
+}
+
+export async function deletePoint(
+  modelId: string,
+  pointId: string
+): Promise<{ newSegment: CanvasSegment | null }> {
+  return dbDeletePoint(await getDb(resolveModelPath(modelId)), pointId);
 }
 
 export async function updateSegment(
@@ -65,14 +73,14 @@ export async function updateSegment(
   segmentId: string,
   fields: { name?: string | null; locked?: boolean }
 ): Promise<void> {
-  dbUpdateSegment(getDb(resolveModelPath(modelId)), segmentId, fields);
+  dbUpdateSegment(await getDb(resolveModelPath(modelId)), segmentId, fields);
 }
 
 export async function splitSegment(
   modelId: string,
   segmentId: string
 ): Promise<{ newPoint: CanvasPoint; segmentA: CanvasSegment; segmentB: CanvasSegment } | null> {
-  return dbSplitSegment(getDb(resolveModelPath(modelId)), segmentId);
+  return dbSplitSegment(await getDb(resolveModelPath(modelId)), segmentId);
 }
 
 export async function duplicateObject(
@@ -81,5 +89,5 @@ export async function duplicateObject(
   offsetX = 0.5,
   offsetY = 0.5
 ): Promise<{ object: CanvasObject; points: CanvasPoint[]; segments: CanvasSegment[] }> {
-  return dbDuplicateObject(getDb(resolveModelPath(modelId)), objectId, offsetX, offsetY);
+  return dbDuplicateObject(await getDb(resolveModelPath(modelId)), objectId, offsetX, offsetY);
 }

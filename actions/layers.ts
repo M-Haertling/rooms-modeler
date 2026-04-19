@@ -23,7 +23,7 @@ export async function createLayer(
   name: string,
   parentId: string | null = null
 ): Promise<CanvasLayer> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   const id = nanoid();
   db.prepare(
     "INSERT INTO layers (id, project_id, parent_id, name, sort_order) VALUES (?, ?, ?, ?, ?)"
@@ -36,7 +36,7 @@ export async function updateLayer(
   layerId: string,
   fields: { name?: string; hidden?: boolean; parentId?: string | null; sortOrder?: number }
 ): Promise<void> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   if (fields.name !== undefined)
     db.prepare("UPDATE layers SET name = ? WHERE id = ?").run(fields.name, layerId);
   if (fields.hidden !== undefined)
@@ -48,7 +48,7 @@ export async function updateLayer(
 }
 
 export async function deleteLayer(modelId: string, layerId: string): Promise<void> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   db.prepare("UPDATE objects SET layer_id = NULL WHERE layer_id = ?").run(layerId);
   db.prepare("DELETE FROM layers WHERE id = ?").run(layerId);
 }
@@ -58,6 +58,6 @@ export async function moveObjectToLayer(
   objectId: string,
   layerId: string | null
 ): Promise<void> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   db.prepare("UPDATE objects SET layer_id = ? WHERE id = ?").run(layerId, objectId);
 }

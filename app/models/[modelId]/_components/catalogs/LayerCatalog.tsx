@@ -2,9 +2,33 @@
 
 import { useState, useMemo, useRef } from "react";
 import { useStore } from "@/store";
-import { createLayer, updateLayer, deleteLayer } from "@/actions/layers";
+import { createLayer, updateLayer, deleteLayer, moveObjectToLayer } from "@/actions/layers";
 import CatalogHeader from "./CatalogHeader";
-import type { CanvasLayer } from "@/types/canvas";
+import type { CanvasLayer, CanvasObject } from "@/types/canvas";
+
+// --- Icons ---
+
+function EyeIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+// --- Drag state ---
 
 interface DragState {
   draggedId: string | null;
@@ -15,6 +39,8 @@ interface DragState {
   onDrop: (targetId: string, position: "before" | "after", siblings: CanvasLayer[]) => void;
   onDragEnd: () => void;
 }
+
+// --- Main catalog ---
 
 export default function LayerCatalog() {
   const [search, setSearch] = useState("");
@@ -29,6 +55,8 @@ export default function LayerCatalog() {
   const storeAddLayer = useStore((s) => s.addLayer);
   const storeUpdateLayer = useStore((s) => s.updateLayer);
   const storeRemoveLayer = useStore((s) => s.removeLayer);
+  const storeUpdateObject = useStore((s) => s.updateObject);
+  const selectObject = useStore((s) => s.selectObject);
 
   const allRootLayers = useMemo(
     () =>
@@ -43,19 +71,16 @@ export default function LayerCatalog() {
     [allRootLayers, search]
   );
 
+  const allLayersList = useMemo(() => Object.values(layers), [layers]);
+
+  const unassignedObjects = useMemo(
+    () => Object.values(objects).filter((o) => !o.layerId).sort((a, b) => a.name.localeCompare(b.name)),
+    [objects]
+  );
+
   async function handleCreate() {
     const layer = await createLayer(modelId, projectId, "New layer");
     storeAddLayer(layer);
-  }
-
-  function calcLayerCost(layerId: string): number {
-    const directCost = Object.values(objects)
-      .filter((o) => o.layerId === layerId)
-      .reduce((s, o) => s + (o.cost ?? 0), 0);
-    const childCost = Object.values(layers)
-      .filter((l) => l.parentId === layerId)
-      .reduce((s, l) => s + calcLayerCost(l.id), 0);
-    return directCost + childCost;
   }
 
   function handleDrop(targetId: string, position: "before" | "after", siblings: CanvasLayer[]) {
@@ -86,15 +111,9 @@ export default function LayerCatalog() {
     dragOverId,
     dragOverPosition,
     onDragStart: setDraggedId,
-    onDragOver: (id, pos) => {
-      setDragOverId(id);
-      setDragOverPosition(pos);
-    },
+    onDragOver: (id, pos) => { setDragOverId(id); setDragOverPosition(pos); },
     onDrop: handleDrop,
-    onDragEnd: () => {
-      setDraggedId(null);
-      setDragOverId(null);
-    },
+    onDragEnd: () => { setDraggedId(null); setDragOverId(null); },
   };
 
   return (
@@ -111,51 +130,133 @@ export default function LayerCatalog() {
             key={layer.id}
             layerId={layer.id}
             depth={0}
-            cost={calcLayerCost(layer.id)}
             modelId={modelId}
             projectId={projectId}
             storeUpdateLayer={storeUpdateLayer}
             storeRemoveLayer={storeRemoveLayer}
             storeAddLayer={storeAddLayer}
+            storeUpdateObject={storeUpdateObject}
+            selectObject={selectObject}
             allLayers={layers}
+            allLayersList={allLayersList}
+            allObjects={objects}
             siblings={allRootLayers}
             dragState={dragState}
+            ancestorHidden={false}
           />
         ))}
-        {rootLayers.length === 0 && (
-          <p className="text-xs p-4" style={{ color: "var(--text-muted)" }}>
-            No layers yet.
-          </p>
+        {unassignedObjects.length > 0 && (
+          <div>
+            <div
+              className="px-4 py-2 border-b text-xs font-medium"
+              style={{ color: "var(--text-muted)", borderColor: "var(--border)", background: "var(--surface-2)" }}
+            >
+              Unassigned
+            </div>
+            {unassignedObjects.map((obj) => (
+              <ObjectRow
+                key={obj.id}
+                object={obj}
+                depth={0}
+                modelId={modelId}
+                allLayersList={allLayersList}
+                storeUpdateObject={storeUpdateObject}
+                selectObject={selectObject}
+                dimmed={false}
+              />
+            ))}
+          </div>
+        )}
+        {rootLayers.length === 0 && unassignedObjects.length === 0 && (
+          <p className="text-xs p-4" style={{ color: "var(--text-muted)" }}>No layers yet.</p>
         )}
       </div>
     </div>
   );
 }
 
+// --- Object row ---
+
+function ObjectRow({
+  object, depth, modelId, allLayersList, storeUpdateObject, selectObject, dimmed,
+}: {
+  object: CanvasObject;
+  depth: number;
+  modelId: string;
+  allLayersList: CanvasLayer[];
+  storeUpdateObject: (id: string, fields: Partial<CanvasObject>) => void;
+  selectObject: (id: string, additive?: boolean) => void;
+  dimmed: boolean;
+}) {
+  async function handleLayerChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const newLayerId = e.target.value === "" ? null : e.target.value;
+    storeUpdateObject(object.id, { layerId: newLayerId });
+    await moveObjectToLayer(modelId, object.id, newLayerId);
+  }
+
+  return (
+    <div
+      className="flex items-center gap-2 border-b"
+      style={{
+        paddingLeft: `${20 + depth * 12}px`,
+        paddingRight: "12px",
+        paddingTop: "6px",
+        paddingBottom: "6px",
+        borderColor: "var(--border)",
+        opacity: dimmed ? 0.4 : 1,
+        cursor: "pointer",
+      }}
+      onClick={(e) => { if ((e.target as HTMLElement).tagName !== "SELECT") selectObject(object.id, e.shiftKey); }}
+    >
+      <span
+        className="w-3 h-3 rounded-full shrink-0 border"
+        style={{ background: object.fillColor, borderColor: object.lineColor }}
+      />
+      <span className="text-xs flex-1 truncate" style={{ color: "var(--text)" }}>{object.name}</span>
+      <select
+        value={object.layerId ?? ""}
+        onChange={handleLayerChange}
+        className="text-xs rounded px-1 py-0.5 max-w-[100px]"
+        style={{
+          background: "var(--surface-2)",
+          color: "var(--text-muted)",
+          border: "1px solid var(--border)",
+        }}
+        title="Move to layer"
+      >
+        <option value="">No layer</option>
+        {allLayersList
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+      </select>
+    </div>
+  );
+}
+
+// --- Layer row ---
+
 function LayerRow({
-  layerId,
-  depth,
-  cost,
-  modelId,
-  projectId,
-  storeUpdateLayer,
-  storeRemoveLayer,
-  storeAddLayer,
-  allLayers,
-  siblings,
-  dragState,
+  layerId, depth, modelId, projectId,
+  storeUpdateLayer, storeRemoveLayer, storeAddLayer, storeUpdateObject, selectObject,
+  allLayers, allLayersList, allObjects, siblings, dragState, ancestorHidden,
 }: {
   layerId: string;
   depth: number;
-  cost: number;
   modelId: string;
   projectId: string;
   storeUpdateLayer: (id: string, fields: Partial<CanvasLayer>) => void;
   storeRemoveLayer: (id: string) => void;
   storeAddLayer: (l: CanvasLayer) => void;
+  storeUpdateObject: (id: string, fields: Partial<CanvasObject>) => void;
+  selectObject: (id: string, additive?: boolean) => void;
   allLayers: Record<string, CanvasLayer>;
+  allLayersList: CanvasLayer[];
+  allObjects: Record<string, CanvasObject>;
   siblings: CanvasLayer[];
   dragState: DragState;
+  ancestorHidden: boolean;
 }) {
   const layer = allLayers[layerId];
   const [editing, setEditing] = useState(false);
@@ -168,14 +269,17 @@ function LayerRow({
     .filter((l) => l.parentId === layerId)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
+  const layerObjects = Object.values(allObjects)
+    .filter((o) => o.layerId === layerId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const isOver = dragState.dragOverId === layerId;
   const isDragging = dragState.draggedId === layerId;
+  const effectivelyHidden = ancestorHidden || layer.hidden;
 
-  // The sibling immediately above this layer (for indent operation)
   const myIndex = siblings.findIndex((l) => l.id === layerId);
   const layerAbove = myIndex > 0 ? siblings[myIndex - 1] : null;
 
-  // For outdent: parent and grandparent-level siblings
   const parentLayer = layer.parentId ? allLayers[layer.parentId] : null;
   const grandparentId = parentLayer?.parentId ?? null;
   const parentSiblings = Object.values(allLayers)
@@ -200,7 +304,6 @@ function LayerRow({
   function startEditing() {
     setEditName(layer.name);
     setEditing(true);
-    // Focus after render
     setTimeout(() => inputRef.current?.select(), 0);
   }
 
@@ -223,16 +326,13 @@ function LayerRow({
       .filter((l) => l.parentId === layerAbove.id)
       .sort((a, b) => a.sortOrder - b.sortOrder);
     const newSortOrder =
-      aboveChildren.length > 0
-        ? aboveChildren[aboveChildren.length - 1].sortOrder + 1
-        : 1;
+      aboveChildren.length > 0 ? aboveChildren[aboveChildren.length - 1].sortOrder + 1 : 1;
     storeUpdateLayer(layerId, { parentId: layerAbove.id, sortOrder: newSortOrder });
     await updateLayer(modelId, layerId, { parentId: layerAbove.id, sortOrder: newSortOrder });
   }
 
   async function handleOutdent() {
     if (!parentLayer) return;
-    // Place just after the parent in the grandparent-level sibling list
     const parentIndex = parentSiblings.findIndex((l) => l.id === parentLayer.id);
     const next = parentSiblings[parentIndex + 1];
     const newSortOrder = next
@@ -263,6 +363,21 @@ function LayerRow({
     dragState.onDragEnd();
   }
 
+  const sharedChildProps = {
+    modelId,
+    projectId,
+    storeUpdateLayer,
+    storeRemoveLayer,
+    storeAddLayer,
+    storeUpdateObject,
+    selectObject,
+    allLayers,
+    allLayersList,
+    allObjects,
+    dragState,
+    ancestorHidden: effectivelyHidden,
+  };
+
   return (
     <div>
       <div
@@ -275,7 +390,7 @@ function LayerRow({
         style={{
           paddingLeft: `${16 + depth * 12}px`,
           borderColor: "var(--border)",
-          opacity: isDragging ? 0.4 : 1,
+          opacity: isDragging ? 0.4 : effectivelyHidden ? 0.45 : 1,
           cursor: editing ? "default" : "grab",
           borderTop:
             isOver && dragState.dragOverPosition === "before"
@@ -289,10 +404,11 @@ function LayerRow({
       >
         <button
           onClick={toggleHidden}
-          className="text-sm w-5 shrink-0"
+          className="shrink-0 flex items-center justify-center w-5"
           style={{ color: layer.hidden ? "var(--text-muted)" : "var(--text)" }}
+          title={layer.hidden ? "Show layer" : "Hide layer"}
         >
-          {layer.hidden ? "○" : "●"}
+          {layer.hidden ? <EyeOffIcon /> : <EyeIcon />}
         </button>
 
         {editing ? (
@@ -308,7 +424,7 @@ function LayerRow({
         ) : (
           <span
             className="text-sm flex-1 truncate"
-            style={{ color: layer.hidden ? "var(--text-muted)" : "var(--text)", cursor: "text" }}
+            style={{ color: "var(--text)", cursor: "text" }}
             onDoubleClick={startEditing}
             title="Double-click to rename"
           >
@@ -316,11 +432,6 @@ function LayerRow({
           </span>
         )}
 
-        {cost > 0 && (
-          <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>
-            ${cost.toFixed(0)}
-          </span>
-        )}
         {parentLayer && !editing && (
           <button
             onClick={handleOutdent}
@@ -357,20 +468,27 @@ function LayerRow({
           ×
         </button>
       </div>
+
+      {layerObjects.map((obj) => (
+        <ObjectRow
+          key={obj.id}
+          object={obj}
+          depth={depth + 1}
+          modelId={modelId}
+          allLayersList={allLayersList}
+          storeUpdateObject={storeUpdateObject}
+          selectObject={selectObject}
+          dimmed={effectivelyHidden}
+        />
+      ))}
+
       {children.map((child) => (
         <LayerRow
           key={child.id}
           layerId={child.id}
           depth={depth + 1}
-          cost={0}
-          modelId={modelId}
-          projectId={projectId}
-          storeUpdateLayer={storeUpdateLayer}
-          storeRemoveLayer={storeRemoveLayer}
-          storeAddLayer={storeAddLayer}
-          allLayers={allLayers}
           siblings={children}
-          dragState={dragState}
+          {...sharedChildProps}
         />
       ))}
     </div>

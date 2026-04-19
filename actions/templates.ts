@@ -29,7 +29,7 @@ export async function saveTemplate(
   objectId: string,
   name: string
 ): Promise<Template> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   const obj = db.prepare("SELECT * FROM objects WHERE id = ?").get(objectId) as DbRow;
   const rawPoints = db.prepare("SELECT * FROM points WHERE object_id = ? ORDER BY sort_order").all(objectId) as DbRow[];
   const rawSegments = db.prepare("SELECT * FROM segments WHERE object_id = ?").all(objectId) as DbRow[];
@@ -63,7 +63,7 @@ export async function saveTemplate(
 }
 
 export async function listTemplates(modelId: string): Promise<Template[]> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   return (db.prepare("SELECT * FROM templates ORDER BY created_at DESC").all() as DbRow[]).map(rowToTemplate);
 }
 
@@ -72,7 +72,7 @@ export async function instantiateFromTemplate(
   templateId: string,
   params: { name: string; width: number; height: number; originX: number; originY: number; layerId: string | null }
 ): Promise<{ object: CanvasObject; points: CanvasPoint[]; segments: CanvasSegment[] }> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   const tmpl = db.prepare("SELECT * FROM templates WHERE id = ?").get(templateId) as DbRow;
   const projectRow = db.prepare("SELECT id FROM project LIMIT 1").get() as DbRow;
 
@@ -119,6 +119,7 @@ export async function instantiateFromTemplate(
         lineThickness: tmpl.line_thickness as number,
         locked: false, owned: false, cost: null, url: null, notes: null,
         height3d: null, customDims: [], rotation: 0, sortOrder: objRow.sort_order as number,
+        showDimensions: false, fillEnabled: true,
       },
       points: createdPoints,
       segments: createdSegments,
@@ -130,6 +131,6 @@ export async function instantiateFromTemplate(
 }
 
 export async function deleteTemplate(modelId: string, templateId: string): Promise<void> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   db.prepare("DELETE FROM templates WHERE id = ?").run(templateId);
 }

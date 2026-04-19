@@ -91,3 +91,4 @@ CREATE TABLE IF NOT EXISTS migrations (
   name      TEXT NOT NULL UNIQUE,
   run_at    INTEGER NOT NULL
 );
+

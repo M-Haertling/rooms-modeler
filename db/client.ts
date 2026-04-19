@@ -2,6 +2,7 @@ import "server-only";
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
+import { createMigrator } from "./migrator";
 
 const SCHEMA_SQL = fs.readFileSync(
   path.join(process.cwd(), "db/schema.sql"),
@@ -9,18 +10,32 @@ const SCHEMA_SQL = fs.readFileSync(
 );
 
 const clients = new Map<string, DatabaseSync>();
+const pending = new Map<string, Promise<DatabaseSync>>();
 
-export function getDb(dbPath: string): DatabaseSync {
-  const existing = clients.get(dbPath);
-  if (existing) return existing;
+export async function getDb(dbPath: string): Promise<DatabaseSync> {
+  const cached = clients.get(dbPath);
+  if (cached) return cached;
 
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const inFlight = pending.get(dbPath);
+  if (inFlight) return inFlight;
 
-  const db = new DatabaseSync(dbPath);
-  db.exec(SCHEMA_SQL);
-  clients.set(dbPath, db);
-  return db;
+  const promise = (async () => {
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const db = new DatabaseSync(dbPath);
+    db.exec(SCHEMA_SQL);
+    await createMigrator(db).up();
+    return db;
+  })();
+
+  pending.set(dbPath, promise);
+  try {
+    const db = await promise;
+    clients.set(dbPath, db);
+    return db;
+  } finally {
+    pending.delete(dbPath);
+  }
 }
 
 export function resolveModelPath(modelId: string): string {

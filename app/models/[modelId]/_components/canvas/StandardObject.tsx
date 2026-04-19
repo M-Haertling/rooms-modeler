@@ -3,6 +3,8 @@
 import { useRef, useCallback } from "react";
 import { useStore } from "@/store";
 import { updatePoint as serverUpdatePoint } from "@/actions/objects";
+import { distance } from "@/lib/geometry";
+import { formatLength } from "@/lib/units";
 import PointHandle from "./PointHandle";
 import SegmentLine from "./SegmentLine";
 
@@ -22,6 +24,7 @@ export default function StandardObject({ objectId }: Props) {
   const zoom = useStore((s) => s.zoom);
   const panOffset = useStore((s) => s.panOffset);
   const modelId = useStore((s) => s.modelId);
+  const unit = useStore((s) => s.unit);
   const pushHistory = useStore((s) => s.pushHistory);
 
   const fillRef = useRef<SVGPolygonElement>(null);
@@ -104,7 +107,7 @@ export default function StandardObject({ objectId }: Props) {
         <polygon
           ref={fillRef}
           points={polygonPoints}
-          fill={obj.fillColor}
+          fill={obj.fillEnabled ? obj.fillColor : "none"}
           stroke="none"
           opacity={0.85}
           style={{ pointerEvents: "visibleFill", cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
@@ -134,6 +137,39 @@ export default function StandardObject({ objectId }: Props) {
           style={{ pointerEvents: "none" }}
         />
       )}
+
+      {/* Dimension labels */}
+      {obj.showDimensions && objSegments.map((seg) => {
+        const pA = allPoints[seg.pointAId];
+        const pB = allPoints[seg.pointBId];
+        if (!pA || !pB) return null;
+        const mx = (pA.x + pB.x) / 2;
+        const my = (pA.y + pB.y) / 2;
+        const len = distance({ x: pA.x, y: pA.y }, { x: pB.x, y: pB.y });
+        const label = formatLength(len, unit);
+        const dx = pB.x - pA.x;
+        const dy = pB.y - pA.y;
+        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const fs = 11 / zoom;
+        const offset = 8 / zoom;
+        return (
+          <g key={`dim-${seg.id}`} transform={`translate(${mx},${my}) rotate(${angle > 90 || angle < -90 ? angle + 180 : angle})`} style={{ pointerEvents: "none" }}>
+            <text
+              x={0}
+              y={-offset}
+              fontSize={fs}
+              textAnchor="middle"
+              dominantBaseline="auto"
+              fill={obj.lineColor}
+              stroke="var(--surface)"
+              strokeWidth={3 / zoom}
+              paintOrder="stroke"
+            >
+              {label}
+            </text>
+          </g>
+        );
+      })}
 
       {/* Point handles */}
       {objPoints.map((p) => (

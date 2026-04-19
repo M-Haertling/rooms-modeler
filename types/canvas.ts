@@ -48,6 +48,8 @@ export interface CanvasObject {
   customDims: CustomDim[];
   rotation: number;
   sortOrder: number;
+  showDimensions: boolean;
+  fillEnabled: boolean;
 }
 
 export interface CanvasLayer {

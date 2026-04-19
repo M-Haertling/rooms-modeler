@@ -26,6 +26,8 @@ export function rowToObject(r: DbRow): CanvasObject {
     customDims: r.custom_dims ? JSON.parse(r.custom_dims as string) : [],
     rotation: r.rotation as number,
     sortOrder: r.sort_order as number,
+    showDimensions: Boolean(r.show_dimensions),
+    fillEnabled: r.fill_enabled === undefined ? true : Boolean(r.fill_enabled),
   };
 }
 
@@ -162,6 +164,8 @@ export function dbUpdateObject(
   if (fields.height3d !== undefined) { updates.push("height_3d = ?"); values.push(fields.height3d); }
   if (fields.customDims !== undefined) { updates.push("custom_dims = ?"); values.push(JSON.stringify(fields.customDims)); }
   if (fields.rotation !== undefined) { updates.push("rotation = ?"); values.push(fields.rotation); }
+  if (fields.showDimensions !== undefined) { updates.push("show_dimensions = ?"); values.push(fields.showDimensions ? 1 : 0); }
+  if (fields.fillEnabled !== undefined) { updates.push("fill_enabled = ?"); values.push(fields.fillEnabled ? 1 : 0); }
 
   if (updates.length === 0) return;
   values.push(objectId);
@@ -217,6 +221,36 @@ export function dbSplitSegment(
     segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false },
     segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false },
   };
+}
+
+export function dbDeletePoint(
+  db: DatabaseSync,
+  pointId: string
+): { newSegment: CanvasSegment | null } {
+  const pt = db.prepare("SELECT object_id FROM points WHERE id = ?").get(pointId) as DbRow | undefined;
+  if (!pt) return { newSegment: null };
+
+  const segs = db.prepare("SELECT * FROM segments WHERE point_a_id = ? OR point_b_id = ?").all(pointId, pointId) as DbRow[];
+  const neighborIds = segs.map((s) => (s.point_a_id as string) === pointId ? (s.point_b_id as string) : (s.point_a_id as string));
+
+  let newSegment: CanvasSegment | null = null;
+
+  db.exec("BEGIN");
+  try {
+    db.prepare("DELETE FROM points WHERE id = ?").run(pointId);
+    if (neighborIds.length === 2 && neighborIds[0] !== neighborIds[1]) {
+      const sid = nanoid();
+      const [a, b] = neighborIds;
+      db.prepare("INSERT INTO segments (id, object_id, point_a_id, point_b_id) VALUES (?, ?, ?, ?)").run(sid, pt.object_id as string, a, b);
+      newSegment = { id: sid, objectId: pt.object_id as string, pointAId: a, pointBId: b, name: null, locked: false };
+    }
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+
+  return { newSegment };
 }
 
 export function dbDuplicateObject(

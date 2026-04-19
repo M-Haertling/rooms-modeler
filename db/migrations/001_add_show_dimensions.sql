@@ -1,0 +1,1 @@
+ALTER TABLE objects ADD COLUMN show_dimensions INTEGER NOT NULL DEFAULT 0;

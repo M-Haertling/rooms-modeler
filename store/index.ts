@@ -80,6 +80,7 @@ interface StoreActions {
   // Points
   movePoint(id: string, x: number, y: number): void;
   updatePoint(id: string, fields: Partial<CanvasPoint>): void;
+  removePoint(pointId: string, newSegment?: CanvasSegment): void;
 
   // Segments
   updateSegment(id: string, fields: Partial<CanvasSegment>): void;
@@ -273,6 +274,18 @@ export const useStore = create<Store>()(
     updatePoint(id, fields) {
       set((s) => {
         if (s.points[id]) Object.assign(s.points[id], fields);
+      });
+    },
+
+    removePoint(pointId, newSegment) {
+      set((s) => {
+        for (const seg of Object.values(s.segments)) {
+          if (seg.pointAId === pointId || seg.pointBId === pointId) delete s.segments[seg.id];
+        }
+        delete s.points[pointId];
+        if (newSegment) s.segments[newSegment.id] = newSegment;
+        s.selectedPointIds.delete(pointId);
+        if (s.selectedPointIds.size === 0) s.sidePanelMode = null;
       });
     },
 

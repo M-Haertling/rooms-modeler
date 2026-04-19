@@ -20,7 +20,7 @@ function rowToImage(r: DbRow): ObjectImage {
 }
 
 export async function getObjectImages(modelId: string, objectId: string): Promise<ObjectImage[]> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   return (db.prepare("SELECT * FROM object_images WHERE object_id = ? ORDER BY sort_order").all(objectId) as DbRow[]).map(rowToImage);
 }
 
@@ -39,7 +39,7 @@ export async function uploadObjectImage(
   const filePath = storedName;
   fs.writeFileSync(path.join(assetsDir, storedName), data);
 
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   const count = (db.prepare("SELECT COUNT(*) as c FROM object_images WHERE object_id = ?").get(objectId) as { c: number }).c;
 
   db.prepare(
@@ -50,13 +50,13 @@ export async function uploadObjectImage(
 }
 
 export async function setPrimaryImage(modelId: string, imageId: string, objectId: string): Promise<void> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   db.prepare("UPDATE object_images SET is_primary = 0 WHERE object_id = ?").run(objectId);
   db.prepare("UPDATE object_images SET is_primary = 1 WHERE id = ?").run(imageId);
 }
 
 export async function deleteImage(modelId: string, imageId: string): Promise<void> {
-  const db = getDb(resolveModelPath(modelId));
+  const db = await getDb(resolveModelPath(modelId));
   const row = db.prepare("SELECT * FROM object_images WHERE id = ?").get(imageId) as DbRow | undefined;
   if (!row) return;
 
