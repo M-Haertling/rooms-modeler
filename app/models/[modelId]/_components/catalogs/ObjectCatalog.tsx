@@ -38,7 +38,7 @@ export default function ObjectCatalog() {
         {filtered.map((obj) => (
           <button
             key={obj.id}
-            className="w-full text-left px-4 py-2.5 border-b flex items-start gap-2 hover:opacity-80"
+            className="w-full text-left px-4 py-3.5 border-b flex items-start gap-2 hover:opacity-80"
             style={{ borderColor: "var(--border)" }}
             onClick={() => { selectObject(obj.id); panToObject(obj.id); }}
           >

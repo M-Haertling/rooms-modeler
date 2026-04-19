@@ -52,7 +52,7 @@ export default function TemplateCatalog() {
           <p className="text-xs p-4" style={{ color: "var(--text-muted)" }}>No templates. Select an object and save it as a template.</p>
         )}
         {filtered.map((t) => (
-          <div key={t.id} className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: "var(--border)" }}>
+          <div key={t.id} className="px-4 py-3.5 border-b flex items-center gap-2" style={{ borderColor: "var(--border)" }}>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium truncate" style={{ color: "var(--text)" }}>{t.name}</div>
               <div className="text-xs capitalize" style={{ color: "var(--text-muted)" }}>{t.kind}</div>
