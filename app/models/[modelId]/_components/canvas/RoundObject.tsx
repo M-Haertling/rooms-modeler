@@ -23,6 +23,8 @@ export default function RoundObject({ objectId }: Props) {
   const pushHistory = useStore((s) => s.pushHistory);
 
   const draggingHandle = useRef<{ handle: Handle; pointId: string } | null>(null);
+  const bodyDragStart = useRef<{ wx: number; wy: number; pts: { id: string; x: number; y: number }[] } | null>(null);
+  const hasDragged = useRef(false);
   const ellipseRef = useRef<SVGEllipseElement>(null);
 
   const objPoints = Object.values(allPoints)
@@ -114,6 +116,53 @@ export default function RoundObject({ objectId }: Props) {
     [modelId, objPoints]
   );
 
+  const handleBodyPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (obj?.locked || draggingHandle.current) return;
+      e.stopPropagation();
+      pushHistory();
+      const world = screenToWorld(e.clientX, e.clientY);
+      if (!world) return;
+      hasDragged.current = false;
+      bodyDragStart.current = {
+        wx: world.x,
+        wy: world.y,
+        pts: objPoints.map((p) => ({ id: p.id, x: p.x, y: p.y })),
+      };
+      (e.currentTarget as SVGEllipseElement).setPointerCapture(e.pointerId);
+    },
+    [obj?.locked, pushHistory, screenToWorld, objPoints]
+  );
+
+  const handleBodyPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!bodyDragStart.current) return;
+      e.stopPropagation();
+      const world = screenToWorld(e.clientX, e.clientY);
+      if (!world) return;
+      const dx = world.x - bodyDragStart.current.wx;
+      const dy = world.y - bodyDragStart.current.wy;
+      hasDragged.current = true;
+      for (const pt of bodyDragStart.current.pts) {
+        movePoint(pt.id, pt.x + dx, pt.y + dy);
+      }
+    },
+    [screenToWorld, movePoint]
+  );
+
+  const handleBodyPointerUp = useCallback(
+    async (e: React.PointerEvent) => {
+      if (!bodyDragStart.current) return;
+      e.stopPropagation();
+      bodyDragStart.current = null;
+      if (!hasDragged.current) return;
+      for (const p of objPoints) {
+        await serverUpdatePoint(modelId, p.id, p.x, p.y);
+      }
+    },
+    [modelId, objPoints]
+  );
+
   if (!obj) return null;
   const isSelected = selectedObjectIds.has(objectId);
   const handleR = 5 / zoom;
@@ -127,7 +176,11 @@ export default function RoundObject({ objectId }: Props) {
 
   return (
     <g
-      onClick={(e) => { e.stopPropagation(); selectObject(objectId, e.shiftKey); }}
+      onClick={(e) => {
+        if (hasDragged.current) { hasDragged.current = false; return; }
+        e.stopPropagation();
+        selectObject(objectId, e.shiftKey);
+      }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{ cursor: "pointer" }}
@@ -139,6 +192,10 @@ export default function RoundObject({ objectId }: Props) {
         stroke={obj.lineColor}
         strokeWidth={obj.lineThickness / 50}
         opacity={0.85}
+        style={{ cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
+        onPointerDown={handleBodyPointerDown}
+        onPointerMove={handleBodyPointerMove}
+        onPointerUp={handleBodyPointerUp}
       />
       {isSelected && handles.map(({ handle, hx, hy }) => {
         const ptId = objPoints[handles.findIndex((h) => h.handle === handle)]?.id;
