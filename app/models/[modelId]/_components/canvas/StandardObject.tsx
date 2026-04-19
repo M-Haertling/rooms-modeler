@@ -27,9 +27,13 @@ export default function StandardObject({ objectId }: Props) {
   const unit = useStore((s) => s.unit);
   const pushHistory = useStore((s) => s.pushHistory);
 
+  const setSnapIndicator = useStore((s) => s.setSnapIndicator);
+
   const fillRef = useRef<SVGPolygonElement>(null);
   const dragStart = useRef<{ wx: number; wy: number; pts: { id: string; x: number; y: number }[] } | null>(null);
   const hasDragged = useRef(false);
+
+  const SNAP_THRESHOLD = 0.25;
 
   if (!obj) return null;
 
@@ -75,9 +79,28 @@ export default function StandardObject({ objectId }: Props) {
     e.stopPropagation();
     const world = screenToWorld(e.clientX, e.clientY);
     if (!world) return;
-    const dx = world.x - dragStart.current.wx;
-    const dy = world.y - dragStart.current.wy;
+    let dx = world.x - dragStart.current.wx;
+    let dy = world.y - dragStart.current.wy;
     hasDragged.current = true;
+
+    let snapped = false;
+    outer: for (const pt of dragStart.current.pts) {
+      if (!allPoints[pt.id]?.snapping) continue;
+      const newX = pt.x + dx;
+      const newY = pt.y + dy;
+      for (const p of Object.values(allPoints)) {
+        if (p.objectId === objectId || !p.snapping) continue;
+        if (distance({ x: newX, y: newY }, { x: p.x, y: p.y }) < SNAP_THRESHOLD) {
+          dx = p.x - pt.x;
+          dy = p.y - pt.y;
+          setSnapIndicator(p.id);
+          snapped = true;
+          break outer;
+        }
+      }
+    }
+    if (!snapped) setSnapIndicator(null);
+
     for (const pt of dragStart.current.pts) {
       movePoint(pt.id, pt.x + dx, pt.y + dy);
     }
@@ -87,6 +110,7 @@ export default function StandardObject({ objectId }: Props) {
     if (!dragStart.current) return;
     e.stopPropagation();
     dragStart.current = null;
+    setSnapIndicator(null);
     if (!hasDragged.current) return;
     for (const p of objPoints) {
       await serverUpdatePoint(modelId, p.id, p.x, p.y);
