@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStore } from "@/store";
+import { useShallow } from "zustand/react/shallow";
 import { updateObject, deleteObject, duplicateObject } from "@/actions/objects";
 import { saveTemplate } from "@/actions/templates";
 import { rotatePoint, boundingBox } from "@/lib/geometry";
@@ -12,10 +13,10 @@ interface Props { objectId: string }
 
 export default function ObjectAttributes({ objectId }: Props) {
   const obj = useStore((s) => s.objects[objectId]);
-  const objPoints = useStore((s) =>
-    Object.values(s.points).filter((p) => p.objectId === objectId)
+  const objPoints = useStore(
+    useShallow((s) => Object.values(s.points).filter((p) => p.objectId === objectId))
   );
-  const objTypes = useStore((s) => Object.values(s.objectTypes));
+  const objTypes = useStore(useShallow((s) => Object.values(s.objectTypes)));
   const modelId = useStore((s) => s.modelId);
   const projectId = useStore((s) => s.projectId);
   const storeUpdateObject = useStore((s) => s.updateObject);
