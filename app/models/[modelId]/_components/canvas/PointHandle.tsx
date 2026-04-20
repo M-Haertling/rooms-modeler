@@ -46,18 +46,18 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       e.stopPropagation();
-      if (pt?.locked) return;
+      if (pt?.xLocked && pt?.yLocked) return;
       pushHistory();
       isDragging.current = true;
       (e.currentTarget as SVGCircleElement).setPointerCapture(e.pointerId);
       selectPoint(pointId, e.shiftKey);
     },
-    [pt?.locked, pushHistory, selectPoint, pointId]
+    [pt?.xLocked, pt?.yLocked, pushHistory, selectPoint, pointId]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDragging.current || pt?.locked) return;
+      if (!isDragging.current || (pt?.xLocked && pt?.yLocked)) return;
       e.stopPropagation();
 
       const world = screenToWorld(e.clientX, e.clientY);
@@ -90,7 +90,7 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
         const anchorId = seg.pointAId === pointId ? seg.pointBId : seg.pointAId;
         const anchor = allPoints[anchorId];
         if (!anchor) continue;
-        if (anchor.locked) { x = pt.x; y = pt.y; break; }
+        if (anchor.xLocked && anchor.yLocked) { x = pt.x; y = pt.y; break; }
         const lockedLen = distance({ x: anchor.x, y: anchor.y }, { x: pt.x, y: pt.y });
         const constrained = constrainToLockedSegment({ x, y }, { x: anchor.x, y: anchor.y }, lockedLen);
         x = constrained.x;
@@ -120,7 +120,7 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
     ? "#6c63ff"
     : isParentSelected
     ? "rgba(108,99,255,0.4)"
-    : pt.locked
+    : pt.xLocked && pt.yLocked
     ? "#ff7c7c"
     : "var(--surface-2)";
 
@@ -133,7 +133,7 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
       fill={fill}
       stroke={isSelected ? "#fff" : "#555577"}
       strokeWidth={1 / zoom}
-      style={{ cursor: pt.locked ? "not-allowed" : "grab", touchAction: "none" }}
+      style={{ cursor: pt.xLocked && pt.yLocked ? "not-allowed" : "grab", touchAction: "none" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}

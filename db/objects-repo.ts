@@ -37,7 +37,9 @@ export function rowToPoint(r: DbRow): CanvasPoint {
     objectId: r.object_id as string,
     x: r.x as number,
     y: r.y as number,
-    locked: Boolean(r.locked),
+    xLocked: Boolean(r.x_locked),
+    yLocked: Boolean(r.y_locked),
+    angleLocked: Boolean(r.angle_locked),
     snapping: Boolean(r.snapping),
     sortOrder: r.sort_order as number,
   };
@@ -51,6 +53,7 @@ export function rowToSegment(r: DbRow): CanvasSegment {
     pointBId: r.point_b_id as string,
     name: (r.name as string | null) ?? null,
     locked: Boolean(r.locked),
+    angleLocked: Boolean(r.angle_locked),
     transparent: Boolean(r.transparent),
     showDimensions: Boolean(r.show_dimensions),
     door: Boolean(r.door),
@@ -107,7 +110,7 @@ export function dbCreateObject(
     db.prepare(
       "INSERT INTO points (id, object_id, x, y, sort_order) VALUES (?, ?, ?, ?, ?)"
     ).run(pid, objId, params.points[i].x, params.points[i].y, i * 1000);
-    createdPoints.push({ id: pid, objectId: objId, x: params.points[i].x, y: params.points[i].y, locked: false, snapping: true, sortOrder: i * 1000 });
+    createdPoints.push({ id: pid, objectId: objId, x: params.points[i].x, y: params.points[i].y, xLocked: false, yLocked: false, angleLocked: false, snapping: true, sortOrder: i * 1000 });
   }
 
   const createdSegments: CanvasSegment[] = [];
@@ -119,7 +122,7 @@ export function dbCreateObject(
       db.prepare(
         "INSERT INTO segments (id, object_id, point_a_id, point_b_id) VALUES (?, ?, ?, ?)"
       ).run(sid, objId, a.id, b.id);
-      createdSegments.push({ id: sid, objectId: objId, pointAId: a.id, pointBId: b.id, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" });
+      createdSegments.push({ id: sid, objectId: objId, pointAId: a.id, pointBId: b.id, name: null, locked: false, angleLocked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" });
     }
   }
 
@@ -139,10 +142,14 @@ export function dbUpdatePoint(
 export function dbUpdatePointFields(
   db: DatabaseSync,
   pointId: string,
-  fields: { locked?: boolean; snapping?: boolean }
+  fields: { xLocked?: boolean; yLocked?: boolean; angleLocked?: boolean; snapping?: boolean }
 ): void {
-  if (fields.locked !== undefined)
-    db.prepare("UPDATE points SET locked = ? WHERE id = ?").run(fields.locked ? 1 : 0, pointId);
+  if (fields.xLocked !== undefined)
+    db.prepare("UPDATE points SET x_locked = ? WHERE id = ?").run(fields.xLocked ? 1 : 0, pointId);
+  if (fields.yLocked !== undefined)
+    db.prepare("UPDATE points SET y_locked = ? WHERE id = ?").run(fields.yLocked ? 1 : 0, pointId);
+  if (fields.angleLocked !== undefined)
+    db.prepare("UPDATE points SET angle_locked = ? WHERE id = ?").run(fields.angleLocked ? 1 : 0, pointId);
   if (fields.snapping !== undefined)
     db.prepare("UPDATE points SET snapping = ? WHERE id = ?").run(fields.snapping ? 1 : 0, pointId);
 }
@@ -184,12 +191,14 @@ export function dbDeleteObject(db: DatabaseSync, objectId: string): void {
 export function dbUpdateSegment(
   db: DatabaseSync,
   segmentId: string,
-  fields: { name?: string | null; locked?: boolean; transparent?: boolean; showDimensions?: boolean; door?: boolean; doorSwingIn?: boolean; doorHingeSide?: "left" | "right" }
+  fields: { name?: string | null; locked?: boolean; angleLocked?: boolean; transparent?: boolean; showDimensions?: boolean; door?: boolean; doorSwingIn?: boolean; doorHingeSide?: "left" | "right" }
 ): void {
   if (fields.name !== undefined)
     db.prepare("UPDATE segments SET name = ? WHERE id = ?").run(fields.name, segmentId);
   if (fields.locked !== undefined)
     db.prepare("UPDATE segments SET locked = ? WHERE id = ?").run(fields.locked ? 1 : 0, segmentId);
+  if (fields.angleLocked !== undefined)
+    db.prepare("UPDATE segments SET angle_locked = ? WHERE id = ?").run(fields.angleLocked ? 1 : 0, segmentId);
   if (fields.transparent !== undefined)
     db.prepare("UPDATE segments SET transparent = ? WHERE id = ?").run(fields.transparent ? 1 : 0, segmentId);
   if (fields.showDimensions !== undefined)
@@ -232,9 +241,9 @@ export function dbSplitSegment(
   }
 
   return {
-    newPoint: { id: midId, objectId: seg.object_id as string, x: mx, y: my, locked: false, snapping: true, sortOrder: newSortOrder },
-    segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" },
-    segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" },
+    newPoint: { id: midId, objectId: seg.object_id as string, x: mx, y: my, xLocked: false, yLocked: false, angleLocked: false, snapping: true, sortOrder: newSortOrder },
+    segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false, angleLocked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" },
+    segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false, angleLocked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" },
   };
 }
 
@@ -257,7 +266,7 @@ export function dbDeletePoint(
       const sid = nanoid();
       const [a, b] = neighborIds;
       db.prepare("INSERT INTO segments (id, object_id, point_a_id, point_b_id) VALUES (?, ?, ?, ?)").run(sid, pt.object_id as string, a, b);
-      newSegment = { id: sid, objectId: pt.object_id as string, pointAId: a, pointBId: b, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" };
+      newSegment = { id: sid, objectId: pt.object_id as string, pointAId: a, pointBId: b, name: null, locked: false, angleLocked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" };
     }
     db.exec("COMMIT");
   } catch (e) {

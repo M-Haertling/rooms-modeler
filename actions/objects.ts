@@ -56,7 +56,7 @@ export async function deleteObject(modelId: string, objectId: string): Promise<v
 export async function updatePoint2(
   modelId: string,
   pointId: string,
-  fields: { locked?: boolean; snapping?: boolean }
+  fields: { xLocked?: boolean; yLocked?: boolean; angleLocked?: boolean; snapping?: boolean }
 ): Promise<void> {
   dbUpdatePointFields(await getDb(resolveModelPath(modelId)), pointId, fields);
 }
@@ -71,7 +71,7 @@ export async function deletePoint(
 export async function updateSegment(
   modelId: string,
   segmentId: string,
-  fields: { name?: string | null; locked?: boolean; transparent?: boolean; showDimensions?: boolean; door?: boolean; doorSwingIn?: boolean; doorHingeSide?: "left" | "right" }
+  fields: { name?: string | null; locked?: boolean; angleLocked?: boolean; transparent?: boolean; showDimensions?: boolean; door?: boolean; doorSwingIn?: boolean; doorHingeSide?: "left" | "right" }
 ): Promise<void> {
   dbUpdateSegment(await getDb(resolveModelPath(modelId)), segmentId, fields);
 }

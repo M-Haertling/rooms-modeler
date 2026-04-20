@@ -35,6 +35,11 @@ export default function SegmentAttributes({ segmentId }: Props) {
     await updateSegment(modelId, segmentId, { locked: !seg.locked });
   }
 
+  async function toggleAngleLocked() {
+    storeUpdateSegment(segmentId, { angleLocked: !seg.angleLocked });
+    await updateSegment(modelId, segmentId, { angleLocked: !seg.angleLocked });
+  }
+
   async function toggleTransparent() {
     storeUpdateSegment(segmentId, { transparent: !seg.transparent });
     await updateSegment(modelId, segmentId, { transparent: !seg.transparent });
@@ -46,11 +51,13 @@ export default function SegmentAttributes({ segmentId }: Props) {
 
     const newAngleRad = (newAngleDeg * Math.PI) / 180;
     const newDir = { x: Math.cos(newAngleRad), y: Math.sin(newAngleRad) };
-    if (!ptB!.locked) {
+    const bFullyLocked = ptB!.xLocked && ptB!.yLocked;
+    const aFullyLocked = ptA!.xLocked && ptA!.yLocked;
+    if (!bFullyLocked) {
       const newB = add({ x: ptA!.x, y: ptA!.y }, scale(newDir, len));
       movePoint(seg.pointBId, newB.x, newB.y);
       await updatePoint(modelId, seg.pointBId, newB.x, newB.y);
-    } else if (!ptA!.locked) {
+    } else if (!aFullyLocked) {
       const newA = subtract({ x: ptB!.x, y: ptB!.y }, scale(newDir, len));
       movePoint(seg.pointAId, newA.x, newA.y);
       await updatePoint(modelId, seg.pointAId, newA.x, newA.y);
@@ -62,12 +69,14 @@ export default function SegmentAttributes({ segmentId }: Props) {
     const newLen = convertToFeet(parseFloat(lengthInput), unit);
     if (isNaN(newLen) || newLen <= 0) return;
 
+    const bFullyLocked = ptB!.xLocked && ptB!.yLocked;
+    const aFullyLocked = ptA!.xLocked && ptA!.yLocked;
     const dir = normalize(subtract({ x: ptB!.x, y: ptB!.y }, { x: ptA!.x, y: ptA!.y }));
-    if (!ptB!.locked) {
+    if (!bFullyLocked) {
       const newB = add({ x: ptA!.x, y: ptA!.y }, scale(dir, newLen));
       movePoint(seg.pointBId, newB.x, newB.y);
       await updatePoint(modelId, seg.pointBId, newB.x, newB.y);
-    } else if (!ptA!.locked) {
+    } else if (!aFullyLocked) {
       const newA = subtract({ x: ptB!.x, y: ptB!.y }, scale(dir, newLen));
       movePoint(seg.pointAId, newA.x, newA.y);
       await updatePoint(modelId, seg.pointAId, newA.x, newA.y);
@@ -119,67 +128,66 @@ export default function SegmentAttributes({ segmentId }: Props) {
 
         <div>
           <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Length ({unitLabel(unit)})</label>
-          {editingLength ? (
-            <div className="flex gap-1">
+          <div className="flex items-center gap-1.5">
+            {editingLength ? (
               <input
                 autoFocus
                 value={lengthInput}
                 onChange={(e) => setLengthInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
+                onBlur={applyLength}
                 className="flex-1 px-2 py-1 rounded text-xs outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
               />
-              <button onClick={applyLength} className="px-2 py-1 rounded text-xs" style={{ background: "var(--accent)", color: "#fff" }}>✓</button>
-            </div>
-          ) : (
-            <button
-              className="w-full text-left px-2 py-1 rounded text-xs"
-              style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
-              onClick={() => { setLengthInput(convertFromFeet(len, unit).toFixed(1)); setEditingLength(true); }}
-              disabled={ptA.locked && ptB.locked}
-            >
-              {formatLength(len, unit)}
-              {ptA.locked && ptB.locked && <span className="ml-2 opacity-50">(both locked)</span>}
-            </button>
-          )}
+            ) : (
+              <button
+                className="flex-1 text-left px-2 py-1 rounded text-xs"
+                style={{
+                  background: "var(--surface-2)",
+                  color: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.locked ? "var(--text-muted)" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  cursor: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.locked ? "default" : "pointer",
+                }}
+                onClick={() => { if (!(ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) && !seg.locked) { setLengthInput(convertFromFeet(len, unit).toFixed(1)); setEditingLength(true); } }}
+              >
+                {formatLength(len, unit)}
+                {ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked && <span className="ml-2 opacity-50">(both locked)</span>}
+              </button>
+            )}
+            <LockButton locked={seg.locked} onToggle={toggleLocked} />
+          </div>
         </div>
 
         <div>
           <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Angle (°)</label>
-          {editingAngle ? (
-            <div className="flex gap-1">
+          <div className="flex items-center gap-1.5">
+            {editingAngle ? (
               <input
                 autoFocus
                 value={angleInput}
                 onChange={(e) => setAngleInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") applyAngle(); if (e.key === "Escape") setEditingAngle(false); }}
+                onBlur={applyAngle}
                 className="flex-1 px-2 py-1 rounded text-xs outline-none"
                 style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
               />
-              <button onClick={applyAngle} className="px-2 py-1 rounded text-xs" style={{ background: "var(--accent)", color: "#fff" }}>✓</button>
-            </div>
-          ) : (
-            <button
-              className="w-full text-left px-2 py-1 rounded text-xs"
-              style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
-              onClick={() => { setAngleInput(angleDeg.toFixed(2)); setEditingAngle(true); }}
-              disabled={ptA.locked && ptB.locked}
-            >
-              {angleDeg.toFixed(2)}°
-              {ptA.locked && ptB.locked && <span className="ml-2 opacity-50">(both locked)</span>}
-            </button>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: "var(--text)" }}>Locked length</span>
-          <button
-            onClick={toggleLocked}
-            className="w-10 h-5 rounded-full relative transition-colors"
-            style={{ background: seg.locked ? "var(--accent)" : "var(--border)" }}
-          >
-            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.locked ? "calc(100% - 18px)" : "2px" }} />
-          </button>
+            ) : (
+              <button
+                className="flex-1 text-left px-2 py-1 rounded text-xs"
+                style={{
+                  background: "var(--surface-2)",
+                  color: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.angleLocked ? "var(--text-muted)" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  cursor: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.angleLocked ? "default" : "pointer",
+                }}
+                onClick={() => { if (!(ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) && !seg.angleLocked) { setAngleInput(angleDeg.toFixed(2)); setEditingAngle(true); } }}
+              >
+                {angleDeg.toFixed(2)}°
+                {ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked && <span className="ml-2 opacity-50">(both locked)</span>}
+              </button>
+            )}
+            <LockButton locked={seg.angleLocked} onToggle={toggleAngleLocked} />
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
@@ -286,5 +294,26 @@ export default function SegmentAttributes({ segmentId }: Props) {
         </button>
       </div>
     </PanelSection>
+  );
+}
+
+function LockButton({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      title={locked ? "Unlock" : "Lock"}
+      className="shrink-0 p-0.5 rounded"
+      style={{ color: locked ? "var(--accent)" : "var(--text-muted)" }}
+    >
+      {locked ? (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/>
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 1C9.24 1 7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2h-1V6c0-2.76-2.24-5-5-5zm0 2c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 7v10H6V10h12zm-6 3c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+        </svg>
+      )}
+    </button>
   );
 }

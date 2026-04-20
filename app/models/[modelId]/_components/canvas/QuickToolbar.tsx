@@ -232,10 +232,16 @@ function PointContent({
     }
   }
 
-  async function toggle(field: "locked" | "snapping") {
+  async function toggle(field: "snapping") {
     const val = !pt[field];
     updatePointStore(pointId, { [field]: val });
     await updatePoint2(modelId, pointId, { [field]: val });
+  }
+
+  async function togglePositionLock() {
+    const newVal = !(pt.xLocked && pt.yLocked);
+    updatePointStore(pointId, { xLocked: newVal, yLocked: newVal });
+    await updatePoint2(modelId, pointId, { xLocked: newVal, yLocked: newVal });
   }
 
   async function applyAngle(raw: string) {
@@ -257,8 +263,8 @@ function PointContent({
 
   return (
     <>
-      <ToggleBtn active={pt.locked} title={pt.locked ? "Unlock point" : "Lock point"} onClick={() => toggle("locked")}>
-        <LockIcon locked={pt.locked} />
+      <ToggleBtn active={pt.xLocked && pt.yLocked} title={pt.xLocked && pt.yLocked ? "Unlock point" : "Lock point"} onClick={togglePositionLock}>
+        <LockIcon locked={pt.xLocked && pt.yLocked} />
       </ToggleBtn>
       <ToggleBtn active={pt.snapping} title={pt.snapping ? "Disable snapping" : "Enable snapping"} onClick={() => toggle("snapping")}>
         <SnapIcon />
@@ -316,7 +322,7 @@ function SegmentContent({
 
   const len = distance({ x: ptA.x, y: ptA.y }, { x: ptB.x, y: ptB.y });
   const angleDeg = (Math.atan2(ptB.y - ptA.y, ptB.x - ptA.x) * 180) / Math.PI;
-  const bothLocked = ptA.locked && ptB.locked;
+  const bothLocked = ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked;
 
   async function toggleField(field: "locked" | "transparent" | "showDimensions") {
     updateSegmentStore(seg.id, { [field]: !seg[field] });
@@ -328,11 +334,11 @@ function SegmentContent({
     if (isNaN(newAngleDeg)) { setEditingAngle(false); return; }
     const newAngleRad = (newAngleDeg * Math.PI) / 180;
     const dir = { x: Math.cos(newAngleRad), y: Math.sin(newAngleRad) };
-    if (!ptB.locked) {
+    if (!(ptB.xLocked && ptB.yLocked)) {
       const nb = add({ x: ptA.x, y: ptA.y }, scale(dir, len));
       movePoint(seg.pointBId, nb.x, nb.y);
       await serverUpdatePoint(modelId, seg.pointBId, nb.x, nb.y);
-    } else if (!ptA.locked) {
+    } else if (!(ptA.xLocked && ptA.yLocked)) {
       const na = subtract({ x: ptB.x, y: ptB.y }, scale(dir, len));
       movePoint(seg.pointAId, na.x, na.y);
       await serverUpdatePoint(modelId, seg.pointAId, na.x, na.y);
@@ -344,11 +350,11 @@ function SegmentContent({
     const newLen = convertToFeet(parseFloat(raw), unit);
     if (isNaN(newLen) || newLen <= 0) { setEditingLength(false); return; }
     const dir = normalize(subtract({ x: ptB.x, y: ptB.y }, { x: ptA.x, y: ptA.y }));
-    if (!ptB.locked) {
+    if (!(ptB.xLocked && ptB.yLocked)) {
       const nb = add({ x: ptA.x, y: ptA.y }, scale(dir, newLen));
       movePoint(seg.pointBId, nb.x, nb.y);
       await serverUpdatePoint(modelId, seg.pointBId, nb.x, nb.y);
-    } else if (!ptA.locked) {
+    } else if (!(ptA.xLocked && ptA.yLocked)) {
       const na = subtract({ x: ptB.x, y: ptB.y }, scale(dir, newLen));
       movePoint(seg.pointAId, na.x, na.y);
       await serverUpdatePoint(modelId, seg.pointAId, na.x, na.y);

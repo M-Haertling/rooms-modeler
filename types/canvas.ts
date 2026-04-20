@@ -10,7 +10,9 @@ export interface CanvasPoint {
   objectId: string;
   x: number;
   y: number;
-  locked: boolean;
+  xLocked: boolean;
+  yLocked: boolean;
+  angleLocked: boolean;
   snapping: boolean;
   sortOrder: number;
 }
@@ -22,6 +24,7 @@ export interface CanvasSegment {
   pointBId: string;
   name: string | null;
   locked: boolean;
+  angleLocked: boolean;
   transparent: boolean;
   showDimensions: boolean;
   door: boolean;

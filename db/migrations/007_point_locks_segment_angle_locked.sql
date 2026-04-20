@@ -1,0 +1,5 @@
+ALTER TABLE points ADD COLUMN x_locked INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE points ADD COLUMN y_locked INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE points ADD COLUMN angle_locked INTEGER NOT NULL DEFAULT 0;
+UPDATE points SET x_locked = locked, y_locked = locked;
+ALTER TABLE segments ADD COLUMN angle_locked INTEGER NOT NULL DEFAULT 0;

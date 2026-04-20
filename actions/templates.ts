@@ -37,13 +37,16 @@ export async function saveTemplate(
   const points: CanvasPoint[] = rawPoints.map((r) => ({
     id: r.id as string, objectId: r.object_id as string,
     x: r.x as number, y: r.y as number,
-    locked: Boolean(r.locked), snapping: Boolean(r.snapping),
+    xLocked: Boolean(r.x_locked), yLocked: Boolean(r.y_locked), angleLocked: Boolean(r.angle_locked),
+    snapping: Boolean(r.snapping),
     sortOrder: r.sort_order as number,
   }));
   const segments: CanvasSegment[] = rawSegments.map((r) => ({
     id: r.id as string, objectId: r.object_id as string,
     pointAId: r.point_a_id as string, pointBId: r.point_b_id as string,
-    name: (r.name as string | null) ?? null, locked: Boolean(r.locked), transparent: Boolean(r.transparent), showDimensions: Boolean(r.show_dimensions),
+    name: (r.name as string | null) ?? null, locked: Boolean(r.locked), angleLocked: Boolean(r.angle_locked),
+    transparent: Boolean(r.transparent), showDimensions: Boolean(r.show_dimensions),
+    door: false, doorSwingIn: true, doorHingeSide: "left" as const,
   }));
 
   const normalizedData = normalizeObject(points, segments);
@@ -95,7 +98,7 @@ export async function instantiateFromTemplate(
       const pid = nanoid();
       pointIdMap.set(p.id, pid);
       db.prepare("INSERT INTO points (id, object_id, x, y, sort_order) VALUES (?, ?, ?, ?, ?)").run(pid, objId, p.x, p.y, p.sortOrder);
-      createdPoints.push({ id: pid, objectId: objId, x: p.x, y: p.y, locked: false, snapping: true, sortOrder: p.sortOrder });
+      createdPoints.push({ id: pid, objectId: objId, x: p.x, y: p.y, xLocked: false, yLocked: false, angleLocked: false, snapping: true, sortOrder: p.sortOrder });
     }
 
     const createdSegments: CanvasSegment[] = [];
@@ -104,7 +107,7 @@ export async function instantiateFromTemplate(
       const aId = pointIdMap.get(s.pointAId)!;
       const bId = pointIdMap.get(s.pointBId)!;
       db.prepare("INSERT INTO segments (id, object_id, point_a_id, point_b_id, name) VALUES (?, ?, ?, ?, ?)").run(sid, objId, aId, bId, s.name);
-      createdSegments.push({ id: sid, objectId: objId, pointAId: aId, pointBId: bId, name: s.name, locked: false, transparent: false, showDimensions: false });
+      createdSegments.push({ id: sid, objectId: objId, pointAId: aId, pointBId: bId, name: s.name, locked: false, angleLocked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" });
     }
 
     db.exec("COMMIT");

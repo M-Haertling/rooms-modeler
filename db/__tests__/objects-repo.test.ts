@@ -203,10 +203,10 @@ describe("dbUpdatePointFields", () => {
     pointId = result.points[0].id;
   });
 
-  it("sets locked", () => {
-    dbUpdatePointFields(db, pointId, { locked: true });
-    const row = db.prepare("SELECT locked FROM points WHERE id = ?").get(pointId) as { locked: number };
-    expect(row.locked).toBe(1);
+  it("sets xLocked", () => {
+    dbUpdatePointFields(db, pointId, { xLocked: true });
+    const row = db.prepare("SELECT x_locked FROM points WHERE id = ?").get(pointId) as { x_locked: number };
+    expect(row.x_locked).toBe(1);
   });
 
   it("sets snapping to false", () => {
