@@ -24,6 +24,9 @@ export interface CanvasSegment {
   locked: boolean;
   transparent: boolean;
   showDimensions: boolean;
+  door: boolean;
+  doorSwingIn: boolean;
+  doorHingeSide: "left" | "right";
 }
 
 export interface CustomDim {

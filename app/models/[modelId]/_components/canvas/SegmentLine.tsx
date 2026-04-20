@@ -15,6 +15,7 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
   const seg = useStore((s) => s.segments[segmentId]);
   const ptA = useStore((s) => seg && s.points[seg.pointAId]);
   const ptB = useStore((s) => seg && s.points[seg.pointBId]);
+  const obj = useStore((s) => seg && s.objects[seg.objectId]);
   const unit = useStore((s) => s.unit);
   const zoom = useStore((s) => s.zoom);
   const selectSegment = useStore((s) => s.selectSegment);
@@ -49,6 +50,49 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
 
   const showLine = !seg.transparent || isSelected;
 
+  // Door arc rendering
+  let doorEl: React.ReactNode = null;
+  if (seg.door && len > 0) {
+    const isHingeAtA = seg.doorHingeSide === "left";
+    const hinge = isHingeAtA ? { x: ptA.x, y: ptA.y } : { x: ptB.x, y: ptB.y };
+    const free = isHingeAtA ? { x: ptB.x, y: ptB.y } : { x: ptA.x, y: ptA.y };
+
+    // Always derive perpendicular from the fixed A→B direction so that
+    // hinge side and swing direction are fully independent controls.
+    const segTheta = Math.atan2(ptB.y - ptA.y, ptB.x - ptA.x);
+    // doorSwingIn=true → segTheta+PI/2 (outward for typical room-above layout)
+    const perpAngle = seg.doorSwingIn ? segTheta + Math.PI / 2 : segTheta - Math.PI / 2;
+    const openX = hinge.x + len * Math.cos(perpAngle);
+    const openY = hinge.y + len * Math.sin(perpAngle);
+    // Sweep flag derived from cross-product analysis for the short 90° arc.
+    const sweepFlag = isHingeAtA === seg.doorSwingIn ? 1 : 0;
+
+    const doorColor = isSelected
+      ? (seg.transparent ? "#22c55e" : "#6c63ff")
+      : (obj?.lineColor ?? "#888888");
+    const sw = (isSelected ? 2 : 1.5) / zoom;
+
+    doorEl = (
+      <g style={{ pointerEvents: "none" }}>
+        {/* Open door panel */}
+        <line
+          x1={hinge.x} y1={hinge.y}
+          x2={openX} y2={openY}
+          stroke={doorColor}
+          strokeWidth={sw}
+        />
+        {/* Swing arc */}
+        <path
+          d={`M ${free.x} ${free.y} A ${len} ${len} 0 0 ${sweepFlag} ${openX} ${openY}`}
+          fill="none"
+          stroke={doorColor}
+          strokeWidth={sw}
+          strokeDasharray={`${4 / zoom},${3 / zoom}`}
+        />
+      </g>
+    );
+  }
+
   return (
     <g>
       {/* Visible line */}
@@ -60,6 +104,8 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
         strokeDasharray={seg.locked ? `${4 / zoom},${3 / zoom}` : undefined}
         style={{ pointerEvents: "none" }}
       />}
+      {/* Door arc */}
+      {doorEl}
       {/* Fat invisible hit area */}
       <line
         x1={ptA.x} y1={ptA.y}

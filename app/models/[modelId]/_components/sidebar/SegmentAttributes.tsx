@@ -88,6 +88,21 @@ export default function SegmentAttributes({ segmentId }: Props) {
     await updateSegment(modelId, segmentId, { name });
   }
 
+  async function toggleDoor() {
+    storeUpdateSegment(segmentId, { door: !seg.door });
+    await updateSegment(modelId, segmentId, { door: !seg.door });
+  }
+
+  async function setDoorSwingIn(value: boolean) {
+    storeUpdateSegment(segmentId, { doorSwingIn: value });
+    await updateSegment(modelId, segmentId, { doorSwingIn: value });
+  }
+
+  async function setDoorHingeSide(value: "left" | "right") {
+    storeUpdateSegment(segmentId, { doorHingeSide: value });
+    await updateSegment(modelId, segmentId, { doorHingeSide: value });
+  }
+
   return (
     <PanelSection title="Segment">
       <div className="space-y-2">
@@ -177,6 +192,76 @@ export default function SegmentAttributes({ segmentId }: Props) {
             <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.transparent ? "calc(100% - 18px)" : "2px" }} />
           </button>
         </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--text)" }}>Door</span>
+          <button
+            onClick={toggleDoor}
+            className="w-10 h-5 rounded-full relative transition-colors"
+            style={{ background: seg.door ? "#a855f7" : "var(--border)" }}
+          >
+            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.door ? "calc(100% - 18px)" : "2px" }} />
+          </button>
+        </div>
+
+        {seg.door && (
+          <div className="space-y-2 pl-2" style={{ borderLeft: "2px solid #a855f7" }}>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Hinge side</label>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setDoorHingeSide("left")}
+                  className="flex-1 py-1 rounded text-xs"
+                  style={{
+                    background: seg.doorHingeSide === "left" ? "#a855f7" : "var(--surface-2)",
+                    color: seg.doorHingeSide === "left" ? "#fff" : "var(--text)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  ◄ Left
+                </button>
+                <button
+                  onClick={() => setDoorHingeSide("right")}
+                  className="flex-1 py-1 rounded text-xs"
+                  style={{
+                    background: seg.doorHingeSide === "right" ? "#a855f7" : "var(--surface-2)",
+                    color: seg.doorHingeSide === "right" ? "#fff" : "var(--text)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  Right ►
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Swing direction</label>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setDoorSwingIn(false)}
+                  className="flex-1 py-1 rounded text-xs"
+                  style={{
+                    background: !seg.doorSwingIn ? "#a855f7" : "var(--surface-2)",
+                    color: !seg.doorSwingIn ? "#fff" : "var(--text)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  Inward
+                </button>
+                <button
+                  onClick={() => setDoorSwingIn(true)}
+                  className="flex-1 py-1 rounded text-xs"
+                  style={{
+                    background: seg.doorSwingIn ? "#a855f7" : "var(--surface-2)",
+                    color: seg.doorSwingIn ? "#fff" : "var(--text)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  Outward
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <span className="text-xs" style={{ color: "var(--text)" }}>Show dimension</span>

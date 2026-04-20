@@ -53,6 +53,9 @@ export function rowToSegment(r: DbRow): CanvasSegment {
     locked: Boolean(r.locked),
     transparent: Boolean(r.transparent),
     showDimensions: Boolean(r.show_dimensions),
+    door: Boolean(r.door),
+    doorSwingIn: r.door_swing_in !== undefined ? Boolean(r.door_swing_in) : true,
+    doorHingeSide: (r.door_hinge_side as string) === "right" ? "right" : "left",
   };
 }
 
@@ -116,7 +119,7 @@ export function dbCreateObject(
       db.prepare(
         "INSERT INTO segments (id, object_id, point_a_id, point_b_id) VALUES (?, ?, ?, ?)"
       ).run(sid, objId, a.id, b.id);
-      createdSegments.push({ id: sid, objectId: objId, pointAId: a.id, pointBId: b.id, name: null, locked: false, transparent: false, showDimensions: false });
+      createdSegments.push({ id: sid, objectId: objId, pointAId: a.id, pointBId: b.id, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" });
     }
   }
 
@@ -181,7 +184,7 @@ export function dbDeleteObject(db: DatabaseSync, objectId: string): void {
 export function dbUpdateSegment(
   db: DatabaseSync,
   segmentId: string,
-  fields: { name?: string | null; locked?: boolean; transparent?: boolean; showDimensions?: boolean }
+  fields: { name?: string | null; locked?: boolean; transparent?: boolean; showDimensions?: boolean; door?: boolean; doorSwingIn?: boolean; doorHingeSide?: "left" | "right" }
 ): void {
   if (fields.name !== undefined)
     db.prepare("UPDATE segments SET name = ? WHERE id = ?").run(fields.name, segmentId);
@@ -191,6 +194,12 @@ export function dbUpdateSegment(
     db.prepare("UPDATE segments SET transparent = ? WHERE id = ?").run(fields.transparent ? 1 : 0, segmentId);
   if (fields.showDimensions !== undefined)
     db.prepare("UPDATE segments SET show_dimensions = ? WHERE id = ?").run(fields.showDimensions ? 1 : 0, segmentId);
+  if (fields.door !== undefined)
+    db.prepare("UPDATE segments SET door = ? WHERE id = ?").run(fields.door ? 1 : 0, segmentId);
+  if (fields.doorSwingIn !== undefined)
+    db.prepare("UPDATE segments SET door_swing_in = ? WHERE id = ?").run(fields.doorSwingIn ? 1 : 0, segmentId);
+  if (fields.doorHingeSide !== undefined)
+    db.prepare("UPDATE segments SET door_hinge_side = ? WHERE id = ?").run(fields.doorHingeSide, segmentId);
 }
 
 export function dbSplitSegment(
@@ -224,8 +233,8 @@ export function dbSplitSegment(
 
   return {
     newPoint: { id: midId, objectId: seg.object_id as string, x: mx, y: my, locked: false, snapping: true, sortOrder: newSortOrder },
-    segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false, transparent: false, showDimensions: false },
-    segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false, transparent: false, showDimensions: false },
+    segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" },
+    segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" },
   };
 }
 
@@ -248,7 +257,7 @@ export function dbDeletePoint(
       const sid = nanoid();
       const [a, b] = neighborIds;
       db.prepare("INSERT INTO segments (id, object_id, point_a_id, point_b_id) VALUES (?, ?, ?, ?)").run(sid, pt.object_id as string, a, b);
-      newSegment = { id: sid, objectId: pt.object_id as string, pointAId: a, pointBId: b, name: null, locked: false, transparent: false, showDimensions: false };
+      newSegment = { id: sid, objectId: pt.object_id as string, pointAId: a, pointBId: b, name: null, locked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" };
     }
     db.exec("COMMIT");
   } catch (e) {
