@@ -5,6 +5,7 @@ import { useStore } from "@/store";
 import { instantiateFromTemplate, deleteTemplate } from "@/actions/templates";
 import CatalogHeader from "./CatalogHeader";
 import type { Template } from "@/types/canvas";
+import { convertToFeet, unitLabel } from "@/lib/units";
 
 export default function TemplateCatalog() {
   const [search, setSearch] = useState("");
@@ -13,6 +14,7 @@ export default function TemplateCatalog() {
   const [newW, setNewW] = useState(2);
   const [newH, setNewH] = useState(2);
 
+  const unit = useStore((s) => s.unit);
   const templates = useStore((s) => s.templates);
   const setTemplates = useStore((s) => s.setTemplates);
   const modelId = useStore((s) => s.modelId);
@@ -31,7 +33,7 @@ export default function TemplateCatalog() {
     const oy = (-panOffset.y / zoom) + 3;
     const result = await instantiateFromTemplate(modelId, instantiating.id, {
       name: newName || instantiating.name,
-      width: newW, height: newH,
+      width: convertToFeet(newW, unit), height: convertToFeet(newH, unit),
       originX: ox, originY: oy,
       layerId: null,
     });
@@ -58,7 +60,7 @@ export default function TemplateCatalog() {
               <div className="text-xs capitalize" style={{ color: "var(--text-muted)" }}>{t.kind}</div>
             </div>
             <button
-              onClick={() => { setInstantiating(t); setNewName(t.name); setNewW(2); setNewH(2); }}
+              onClick={() => { setInstantiating(t); setNewName(t.name); setNewW(unit === "standard" ? 24 : 60); setNewH(unit === "standard" ? 24 : 60); }}
               className="text-xs px-2 py-1 rounded"
               style={{ background: "var(--accent)", color: "#fff" }}
             >Use</button>
@@ -77,11 +79,11 @@ export default function TemplateCatalog() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Width (units)</label>
+                <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Width ({unitLabel(unit)})</label>
                 <input type="number" value={newW} min={0.1} step={0.5} onChange={(e) => setNewW(parseFloat(e.target.value) || 1)} className="w-full px-2 py-1 rounded text-xs outline-none" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
               </div>
               <div>
-                <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Height (units)</label>
+                <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Height ({unitLabel(unit)})</label>
                 <input type="number" value={newH} min={0.1} step={0.5} onChange={(e) => setNewH(parseFloat(e.target.value) || 1)} className="w-full px-2 py-1 rounded text-xs outline-none" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }} />
               </div>
             </div>

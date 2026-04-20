@@ -41,7 +41,7 @@ export async function createModel(name: string): Promise<string> {
   const now = Date.now();
   db.prepare(
     "INSERT INTO project (id, name, unit, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
-  ).run(nanoid(), name, "feet", now, now);
+  ).run(nanoid(), name, "standard", now, now);
   return id;
 }
 

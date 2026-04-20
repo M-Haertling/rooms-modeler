@@ -143,7 +143,7 @@ export const useStore = create<Store>()(
     modelId: "",
     projectId: "",
     projectName: "",
-    unit: "feet",
+    unit: "standard",
     objects: {},
     points: {},
     segments: {},
@@ -168,7 +168,8 @@ export const useStore = create<Store>()(
         s.modelId = data.modelId;
         s.projectId = data.projectId;
         s.projectName = data.projectName;
-        s.unit = data.unit;
+        const legacyMap: Record<string, Unit> = { feet: "standard", inches: "standard", cm: "metric", m: "metric", mm: "metric" };
+        s.unit = legacyMap[data.unit as string] ?? (data.unit as Unit);
         s.objects = toRecord(data.objects);
         s.points = toRecord(data.points);
         s.segments = toRecord(data.segments);

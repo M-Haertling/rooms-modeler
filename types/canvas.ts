@@ -1,4 +1,4 @@
-export type Unit = "feet" | "inches" | "cm" | "m" | "mm";
+export type Unit = "standard" | "metric";
 
 export interface Vec2 {
   x: number;

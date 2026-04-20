@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useStore } from "@/store";
 import { createObject } from "@/actions/objects";
+import { convertToFeet, unitLabel } from "@/lib/units";
 
 export default function AddObjectButton() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [kind, setKind] = useState<"standard" | "round">("standard");
-  const [size, setSize] = useState(2);
+  const [size, setSize] = useState(24);
   const modelId = useStore((s) => s.modelId);
+  const unit = useStore((s) => s.unit);
   const projectId = useStore((s) => s.projectId);
   const addObject = useStore((s) => s.addObject);
   const panOffset = useStore((s) => s.panOffset);
@@ -18,7 +20,7 @@ export default function AddObjectButton() {
   async function handleCreate() {
     const cx = (-panOffset.x / zoom) + 5;
     const cy = (-panOffset.y / zoom) + 5;
-    const h = size / 2;
+    const h = convertToFeet(size, unit) / 2;
 
     let pts: { x: number; y: number }[];
     if (kind === "standard") {
@@ -48,7 +50,7 @@ export default function AddObjectButton() {
     addObject(result.object, result.points, result.segments);
     setOpen(false);
     setName("");
-    setSize(2);
+    setSize(unit === "standard" ? 24 : 60);
   }
 
   return (
@@ -56,7 +58,7 @@ export default function AddObjectButton() {
       <button
         className="px-3 py-1 text-xs rounded font-medium"
         style={{ background: "var(--accent)", color: "#fff" }}
-        onClick={() => setOpen(true)}
+        onClick={() => { setOpen(true); setSize(unit === "standard" ? 24 : 60); }}
       >
         + Add object
       </button>
@@ -96,7 +98,7 @@ export default function AddObjectButton() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Size (units)</label>
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Size ({unitLabel(unit)})</label>
               <input
                 type="number"
                 value={size}

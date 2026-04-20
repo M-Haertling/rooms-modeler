@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useStore } from "@/store";
 import { updateSegment, updatePoint, splitSegment } from "@/actions/objects";
 import { distance, normalize, add, scale, subtract } from "@/lib/geometry";
-import { formatLength } from "@/lib/units";
+import { formatLength, convertFromFeet, convertToFeet, unitLabel } from "@/lib/units";
 import PanelSection from "./PanelSection";
 
 interface Props { segmentId: string }
@@ -59,7 +59,7 @@ export default function SegmentAttributes({ segmentId }: Props) {
   }
 
   async function applyLength() {
-    const newLen = parseFloat(lengthInput);
+    const newLen = convertToFeet(parseFloat(lengthInput), unit);
     if (isNaN(newLen) || newLen <= 0) return;
 
     const dir = normalize(subtract({ x: ptB!.x, y: ptB!.y }, { x: ptA!.x, y: ptA!.y }));
@@ -103,7 +103,7 @@ export default function SegmentAttributes({ segmentId }: Props) {
         </div>
 
         <div>
-          <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Length</label>
+          <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Length ({unitLabel(unit)})</label>
           {editingLength ? (
             <div className="flex gap-1">
               <input
@@ -120,7 +120,7 @@ export default function SegmentAttributes({ segmentId }: Props) {
             <button
               className="w-full text-left px-2 py-1 rounded text-xs"
               style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
-              onClick={() => { setLengthInput(len.toFixed(4)); setEditingLength(true); }}
+              onClick={() => { setLengthInput(convertFromFeet(len, unit).toFixed(1)); setEditingLength(true); }}
               disabled={ptA.locked && ptB.locked}
             >
               {formatLength(len, unit)}

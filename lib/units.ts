@@ -1,38 +1,40 @@
 import type { Unit } from "@/types/canvas";
 
-const TO_FEET: Record<Unit, number> = {
-  feet: 1,
-  inches: 1 / 12,
-  cm: 1 / 30.48,
-  m: 1 / 0.3048,
-  mm: 1 / 304.8,
-};
-
-const LABELS: Record<Unit, string> = {
-  feet: "ft",
-  inches: "in",
-  cm: "cm",
-  m: "m",
-  mm: "mm",
-};
-
-export function convertFromFeet(valueFeet: number, unit: Unit): number {
-  return valueFeet / TO_FEET[unit];
+export function formatLength(valueFeet: number, unit: Unit): string {
+  if (unit === "standard") {
+    const totalInches = valueFeet * 12;
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round((totalInches % 12) * 10) / 10;
+    if (feet === 0) return `${inches} in`;
+    if (inches === 0) return `${feet} ft`;
+    return `${feet} ft ${inches} in`;
+  } else {
+    const totalCm = valueFeet * 30.48;
+    const meters = Math.floor(totalCm / 100);
+    const cm = Math.round((totalCm % 100) * 10) / 10;
+    if (meters === 0) return `${cm} cm`;
+    if (cm === 0) return `${meters} m`;
+    return `${meters} m ${cm} cm`;
+  }
 }
 
+// Converts from display unit (inches for standard, cm for metric) to feet
 export function convertToFeet(value: number, unit: Unit): number {
-  return value * TO_FEET[unit];
+  if (unit === "standard") return value / 12;
+  return value / 30.48;
 }
 
-export function formatLength(valueFeet: number, unit: Unit, decimals = 2): string {
-  const converted = convertFromFeet(valueFeet, unit);
-  return `${converted.toFixed(decimals)} ${LABELS[unit]}`;
+// Converts from feet to display unit (inches for standard, cm for metric)
+export function convertFromFeet(valueFeet: number, unit: Unit): number {
+  if (unit === "standard") return valueFeet * 12;
+  return valueFeet * 30.48;
+}
+
+export function unitLabel(unit: Unit): string {
+  return unit === "standard" ? "in" : "cm";
 }
 
 export const UNIT_OPTIONS: { value: Unit; label: string }[] = [
-  { value: "feet", label: "Feet (ft)" },
-  { value: "inches", label: "Inches (in)" },
-  { value: "m", label: "Meters (m)" },
-  { value: "cm", label: "Centimeters (cm)" },
-  { value: "mm", label: "Millimeters (mm)" },
+  { value: "standard", label: "Standard (ft/in)" },
+  { value: "metric", label: "Metric (m/cm)" },
 ];
