@@ -23,6 +23,7 @@ export interface CanvasSegment {
   name: string | null;
   locked: boolean;
   transparent: boolean;
+  showDimensions: boolean;
 }
 
 export interface CustomDim {

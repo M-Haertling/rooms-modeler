@@ -1,0 +1,1 @@
+ALTER TABLE segments ADD COLUMN show_dimensions INTEGER NOT NULL DEFAULT 0;

@@ -178,6 +178,20 @@ export default function SegmentAttributes({ segmentId }: Props) {
           </button>
         </div>
 
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--text)" }}>Show dimension</span>
+          <button
+            onClick={async () => {
+              storeUpdateSegment(segmentId, { showDimensions: !seg.showDimensions });
+              await updateSegment(modelId, segmentId, { showDimensions: !seg.showDimensions });
+            }}
+            className="w-10 h-5 rounded-full relative transition-colors"
+            style={{ background: seg.showDimensions ? "var(--accent)" : "var(--border)" }}
+          >
+            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.showDimensions ? "calc(100% - 18px)" : "2px" }} />
+          </button>
+        </div>
+
         <button
           onClick={handleSplit}
           className="w-full py-1.5 rounded text-xs"

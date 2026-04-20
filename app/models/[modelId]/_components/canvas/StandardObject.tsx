@@ -170,7 +170,8 @@ export default function StandardObject({ objectId }: Props) {
       })}
 
       {/* Dimension labels */}
-      {obj.showDimensions && objSegments.map((seg) => {
+      {objSegments.map((seg) => {
+        if (!obj.showDimensions && !seg.showDimensions) return null;
         const pA = allPoints[seg.pointAId];
         const pB = allPoints[seg.pointBId];
         if (!pA || !pB) return null;
