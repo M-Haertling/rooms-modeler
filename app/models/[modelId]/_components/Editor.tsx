@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useStore } from "@/store";
 import Toolbar from "./toolbar/Toolbar";
 import CanvasRoot from "./canvas/CanvasRoot";
+import QuickToolbar from "./canvas/QuickToolbar";
 import SidePanel from "./sidebar/SidePanel";
 import CatalogDrawer from "./catalogs/CatalogDrawer";
 
@@ -33,6 +34,7 @@ export default function Editor() {
         <CatalogDrawer />
         <div className="flex-1 relative overflow-hidden">
           <CanvasRoot />
+          <QuickToolbar />
         </div>
         <SidePanel />
       </div>
