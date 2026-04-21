@@ -36,7 +36,7 @@ interface StoreState {
 
   // Selection
   selectedPointIds: Set<string>;
-  selectedSegmentId: string | null;
+  selectedSegmentIds: Set<string>;
   selectedObjectIds: Set<string>;
   lassoRect: LassoRect | null;
 
@@ -106,7 +106,7 @@ interface StoreActions {
 
   // Selection
   selectPoint(id: string, additive?: boolean): void;
-  selectSegment(id: string | null): void;
+  selectSegment(id: string | null, additive?: boolean): void;
   selectObject(id: string, additive?: boolean): void;
   addPointsToSelection(ids: string[]): void;
   clearSelection(): void;
@@ -151,7 +151,7 @@ export const useStore = create<Store>()(
     objectTypes: {},
     templates: [],
     selectedPointIds: new Set(),
-    selectedSegmentId: null,
+    selectedSegmentIds: new Set(),
     selectedObjectIds: new Set(),
     lassoRect: null,
     sidePanelMode: null,
@@ -211,7 +211,7 @@ export const useStore = create<Store>()(
         s.segments = prev.segments;
         s.layers = prev.layers;
         s.selectedPointIds = new Set();
-        s.selectedSegmentId = null;
+        s.selectedSegmentIds = new Set();
         s.selectedObjectIds = new Set();
       });
     },
@@ -228,7 +228,7 @@ export const useStore = create<Store>()(
         s.segments = next.segments;
         s.layers = next.layers;
         s.selectedPointIds = new Set();
-        s.selectedSegmentId = null;
+        s.selectedSegmentIds = new Set();
         s.selectedObjectIds = new Set();
       });
     },
@@ -350,7 +350,7 @@ export const useStore = create<Store>()(
     // ── Selection ────────────────────────────────────────────────────────────
     selectPoint(id, additive = false) {
       set((s) => {
-        if (!additive) { s.selectedPointIds = new Set(); s.selectedSegmentId = null; }
+        if (!additive) { s.selectedPointIds = new Set(); s.selectedSegmentIds = new Set(); }
         s.selectedPointIds.add(id);
         const pt = s.points[id];
         if (pt) { s.selectedObjectIds = new Set([pt.objectId]); }
@@ -358,15 +358,16 @@ export const useStore = create<Store>()(
       });
     },
 
-    selectSegment(id) {
+    selectSegment(id, additive = false) {
       set((s) => {
-        s.selectedSegmentId = id;
-        s.selectedPointIds = new Set();
+        if (!additive) { s.selectedSegmentIds = new Set(); s.selectedPointIds = new Set(); }
         if (id) {
+          s.selectedSegmentIds.add(id);
           const seg = s.segments[id];
           if (seg) s.selectedObjectIds = new Set([seg.objectId]);
           s.sidePanelMode = "segment";
         } else {
+          s.selectedSegmentIds = new Set();
           s.sidePanelMode = null;
         }
       });
@@ -374,7 +375,7 @@ export const useStore = create<Store>()(
 
     selectObject(id, additive = false) {
       set((s) => {
-        if (!additive) { s.selectedObjectIds = new Set(); s.selectedPointIds = new Set(); s.selectedSegmentId = null; }
+        if (!additive) { s.selectedObjectIds = new Set(); s.selectedPointIds = new Set(); s.selectedSegmentIds = new Set(); }
         s.selectedObjectIds.add(id);
         s.sidePanelMode = "object";
       });
@@ -390,7 +391,7 @@ export const useStore = create<Store>()(
     clearSelection() {
       set((s) => {
         s.selectedPointIds = new Set();
-        s.selectedSegmentId = null;
+        s.selectedSegmentIds = new Set();
         s.selectedObjectIds = new Set();
         s.sidePanelMode = null;
         s.lassoRect = null;

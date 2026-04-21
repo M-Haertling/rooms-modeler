@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 import { useStore } from "@/store";
+import { useShallow } from "zustand/react/shallow";
 import { updateSegment, updatePoint, splitSegment } from "@/actions/objects";
 import { distance, normalize, add, scale, subtract } from "@/lib/geometry";
 import { formatLength, convertFromFeet, convertToFeet, unitLabel } from "@/lib/units";
 import PanelSection from "./PanelSection";
 
-interface Props { segmentId: string }
+interface Props { segmentIds: string[] }
 
-export default function SegmentAttributes({ segmentId }: Props) {
-  const seg = useStore((s) => s.segments[segmentId]);
-  const ptA = useStore((s) => seg ? s.points[seg.pointAId] : null);
-  const ptB = useStore((s) => seg ? s.points[seg.pointBId] : null);
+function getMixed<T>(values: T[]): T | "mixed" {
+  if (values.length === 0) return "mixed";
+  return values.every((v) => v === values[0]) ? values[0] : "mixed";
+}
+
+export default function SegmentAttributes({ segmentIds }: Props) {
+  const allSegments = useStore(useShallow((s) => s.segments));
+  const allPoints = useStore(useShallow((s) => s.points));
   const unit = useStore((s) => s.unit);
   const modelId = useStore((s) => s.modelId);
   const storeUpdateSegment = useStore((s) => s.updateSegment);
@@ -25,40 +30,70 @@ export default function SegmentAttributes({ segmentId }: Props) {
   const [angleInput, setAngleInput] = useState("");
   const [editingAngle, setEditingAngle] = useState(false);
 
-  if (!seg || !ptA || !ptB) return null;
+  const segs = segmentIds.map((id) => allSegments[id]).filter(Boolean);
+  if (segs.length === 0) return null;
 
-  const len = distance({ x: ptA.x, y: ptA.y }, { x: ptB.x, y: ptB.y });
-  const angleDeg = (Math.atan2(ptB.y - ptA.y, ptB.x - ptA.x) * 180) / Math.PI;
+  const single = segs.length === 1;
+  const seg = segs[0];
 
-  async function toggleLocked() {
-    storeUpdateSegment(segmentId, { locked: !seg.locked });
-    await updateSegment(modelId, segmentId, { locked: !seg.locked });
+  const ptA = allPoints[seg.pointAId];
+  const ptB = allPoints[seg.pointBId];
+
+  // Derived values for single segment
+  const len = single && ptA && ptB ? distance({ x: ptA.x, y: ptA.y }, { x: ptB.x, y: ptB.y }) : null;
+  const angleDeg = single && ptA && ptB
+    ? (Math.atan2(ptB.y - ptA.y, ptB.x - ptA.x) * 180) / Math.PI
+    : null;
+
+  // Mixed value checks
+  const nameVal = getMixed(segs.map((s) => s.name ?? ""));
+  const lockedVal = getMixed(segs.map((s) => s.locked));
+  const angleLocked = getMixed(segs.map((s) => s.angleLocked));
+  const transparentVal = getMixed(segs.map((s) => s.transparent));
+  const doorVal = getMixed(segs.map((s) => s.door));
+  const showDimVal = getMixed(segs.map((s) => s.showDimensions));
+  const doorHingeVal = getMixed(segs.map((s) => s.doorHingeSide));
+  const doorSwingVal = getMixed(segs.map((s) => s.doorSwingIn));
+  const allDoors = segs.every((s) => s.door);
+
+  async function toggleAll(field: keyof typeof seg) {
+    const current = getMixed(segs.map((s) => s[field] as boolean));
+    const val = current === true ? false : true;
+    for (const s of segs) {
+      storeUpdateSegment(s.id, { [field]: val });
+      await updateSegment(modelId, s.id, { [field]: val });
+    }
   }
 
-  async function toggleAngleLocked() {
-    storeUpdateSegment(segmentId, { angleLocked: !seg.angleLocked });
-    await updateSegment(modelId, segmentId, { angleLocked: !seg.angleLocked });
+  async function setAllDoorHingeSide(value: "left" | "right") {
+    for (const s of segs) {
+      storeUpdateSegment(s.id, { doorHingeSide: value });
+      await updateSegment(modelId, s.id, { doorHingeSide: value });
+    }
   }
 
-  async function toggleTransparent() {
-    storeUpdateSegment(segmentId, { transparent: !seg.transparent });
-    await updateSegment(modelId, segmentId, { transparent: !seg.transparent });
+  async function setAllDoorSwingIn(value: boolean) {
+    for (const s of segs) {
+      storeUpdateSegment(s.id, { doorSwingIn: value });
+      await updateSegment(modelId, s.id, { doorSwingIn: value });
+    }
   }
 
   async function applyAngle() {
+    if (!single || !ptA || !ptB || len === null) return;
     const newAngleDeg = parseFloat(angleInput);
     if (isNaN(newAngleDeg)) return;
 
     const newAngleRad = (newAngleDeg * Math.PI) / 180;
     const newDir = { x: Math.cos(newAngleRad), y: Math.sin(newAngleRad) };
-    const bFullyLocked = ptB!.xLocked && ptB!.yLocked;
-    const aFullyLocked = ptA!.xLocked && ptA!.yLocked;
+    const bFullyLocked = ptB.xLocked && ptB.yLocked;
+    const aFullyLocked = ptA.xLocked && ptA.yLocked;
     if (!bFullyLocked) {
-      const newB = add({ x: ptA!.x, y: ptA!.y }, scale(newDir, len));
+      const newB = add({ x: ptA.x, y: ptA.y }, scale(newDir, len));
       movePoint(seg.pointBId, newB.x, newB.y);
       await updatePoint(modelId, seg.pointBId, newB.x, newB.y);
     } else if (!aFullyLocked) {
-      const newA = subtract({ x: ptB!.x, y: ptB!.y }, scale(newDir, len));
+      const newA = subtract({ x: ptB.x, y: ptB.y }, scale(newDir, len));
       movePoint(seg.pointAId, newA.x, newA.y);
       await updatePoint(modelId, seg.pointAId, newA.x, newA.y);
     }
@@ -66,18 +101,19 @@ export default function SegmentAttributes({ segmentId }: Props) {
   }
 
   async function applyLength() {
+    if (!single || !ptA || !ptB || len === null) return;
     const newLen = convertToFeet(parseFloat(lengthInput), unit);
     if (isNaN(newLen) || newLen <= 0) return;
 
-    const bFullyLocked = ptB!.xLocked && ptB!.yLocked;
-    const aFullyLocked = ptA!.xLocked && ptA!.yLocked;
-    const dir = normalize(subtract({ x: ptB!.x, y: ptB!.y }, { x: ptA!.x, y: ptA!.y }));
+    const bFullyLocked = ptB.xLocked && ptB.yLocked;
+    const aFullyLocked = ptA.xLocked && ptA.yLocked;
+    const dir = normalize(subtract({ x: ptB.x, y: ptB.y }, { x: ptA.x, y: ptA.y }));
     if (!bFullyLocked) {
-      const newB = add({ x: ptA!.x, y: ptA!.y }, scale(dir, newLen));
+      const newB = add({ x: ptA.x, y: ptA.y }, scale(dir, newLen));
       movePoint(seg.pointBId, newB.x, newB.y);
       await updatePoint(modelId, seg.pointBId, newB.x, newB.y);
     } else if (!aFullyLocked) {
-      const newA = subtract({ x: ptB!.x, y: ptB!.y }, scale(dir, newLen));
+      const newA = subtract({ x: ptB.x, y: ptB.y }, scale(dir, newLen));
       movePoint(seg.pointAId, newA.x, newA.y);
       await updatePoint(modelId, seg.pointAId, newA.x, newA.y);
     }
@@ -85,156 +121,154 @@ export default function SegmentAttributes({ segmentId }: Props) {
   }
 
   async function handleSplit() {
+    if (!single) return;
     pushHistory();
-    const result = await splitSegment(modelId, segmentId);
+    const result = await splitSegment(modelId, seg.id);
     if (result) {
-      splitSegmentInStore(segmentId, result.newPoint, result.segmentA, result.segmentB);
+      splitSegmentInStore(seg.id, result.newPoint, result.segmentA, result.segmentB);
     }
   }
 
   async function handleNameChange(name: string) {
-    storeUpdateSegment(segmentId, { name });
-    await updateSegment(modelId, segmentId, { name });
+    for (const s of segs) {
+      storeUpdateSegment(s.id, { name });
+      await updateSegment(modelId, s.id, { name });
+    }
   }
 
-  async function toggleDoor() {
-    storeUpdateSegment(segmentId, { door: !seg.door });
-    await updateSegment(modelId, segmentId, { door: !seg.door });
-  }
+  const title = single ? "Segment" : `Segments (${segs.length})`;
 
-  async function setDoorSwingIn(value: boolean) {
-    storeUpdateSegment(segmentId, { doorSwingIn: value });
-    await updateSegment(modelId, segmentId, { doorSwingIn: value });
-  }
-
-  async function setDoorHingeSide(value: "left" | "right") {
-    storeUpdateSegment(segmentId, { doorHingeSide: value });
-    await updateSegment(modelId, segmentId, { doorHingeSide: value });
-  }
+  const bothLocked = single && ptA && ptB && ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked;
+  const lengthEditable = single && !bothLocked && lockedVal !== true;
+  const angleEditable = single && !bothLocked && angleLocked !== true;
 
   return (
-    <PanelSection title="Segment">
+    <PanelSection title={title}>
       <div className="space-y-2">
         <div>
           <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Name</label>
           <input
-            defaultValue={seg.name ?? ""}
+            key={segmentIds.join(",")}
+            defaultValue={nameVal === "mixed" ? "" : nameVal}
+            placeholder={nameVal === "mixed" ? "—" : "Unnamed"}
             onBlur={(e) => handleNameChange(e.target.value)}
             className="w-full px-2 py-1 rounded text-xs outline-none"
             style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
-            placeholder="Unnamed"
           />
         </div>
 
-        <div>
-          <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Length ({unitLabel(unit)})</label>
-          <div className="flex items-center gap-1.5">
-            {editingLength ? (
-              <input
-                autoFocus
-                value={lengthInput}
-                onChange={(e) => setLengthInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
-                onBlur={applyLength}
-                className="flex-1 px-2 py-1 rounded text-xs outline-none"
-                style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
-              />
-            ) : (
-              <button
-                className="flex-1 text-left px-2 py-1 rounded text-xs"
-                style={{
-                  background: "var(--surface-2)",
-                  color: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.locked ? "var(--text-muted)" : "var(--text)",
-                  border: "1px solid var(--border)",
-                  cursor: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.locked ? "default" : "pointer",
-                }}
-                onClick={() => { if (!(ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) && !seg.locked) { setLengthInput(convertFromFeet(len, unit).toFixed(1)); setEditingLength(true); } }}
-              >
-                {formatLength(len, unit)}
-                {ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked && <span className="ml-2 opacity-50">(both locked)</span>}
-              </button>
-            )}
-            <LockButton locked={seg.locked} onToggle={toggleLocked} />
-          </div>
-        </div>
+        {single && (
+          <>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Length ({unitLabel(unit)})</label>
+              <div className="flex items-center gap-1.5">
+                {editingLength ? (
+                  <input
+                    autoFocus
+                    value={lengthInput}
+                    onChange={(e) => setLengthInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
+                    onBlur={applyLength}
+                    className="flex-1 px-2 py-1 rounded text-xs outline-none"
+                    style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+                  />
+                ) : (
+                  <button
+                    className="flex-1 text-left px-2 py-1 rounded text-xs"
+                    style={{
+                      background: "var(--surface-2)",
+                      color: lengthEditable ? "var(--text)" : "var(--text-muted)",
+                      border: "1px solid var(--border)",
+                      cursor: lengthEditable ? "pointer" : "default",
+                    }}
+                    onClick={() => { if (lengthEditable && len !== null) { setLengthInput(convertFromFeet(len, unit).toFixed(1)); setEditingLength(true); } }}
+                  >
+                    {len !== null ? formatLength(len, unit) : "—"}
+                    {bothLocked && <span className="ml-2 opacity-50">(both locked)</span>}
+                  </button>
+                )}
+                <LockButton locked={lockedVal} onToggle={() => toggleAll("locked")} />
+              </div>
+            </div>
 
-        <div>
-          <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Angle (°)</label>
+            <div>
+              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Angle (°)</label>
+              <div className="flex items-center gap-1.5">
+                {editingAngle ? (
+                  <input
+                    autoFocus
+                    value={angleInput}
+                    onChange={(e) => setAngleInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") applyAngle(); if (e.key === "Escape") setEditingAngle(false); }}
+                    onBlur={applyAngle}
+                    className="flex-1 px-2 py-1 rounded text-xs outline-none"
+                    style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+                  />
+                ) : (
+                  <button
+                    className="flex-1 text-left px-2 py-1 rounded text-xs"
+                    style={{
+                      background: "var(--surface-2)",
+                      color: angleEditable ? "var(--text)" : "var(--text-muted)",
+                      border: "1px solid var(--border)",
+                      cursor: angleEditable ? "pointer" : "default",
+                    }}
+                    onClick={() => { if (angleEditable && angleDeg !== null) { setAngleInput(angleDeg.toFixed(2)); setEditingAngle(true); } }}
+                  >
+                    {angleDeg !== null ? `${angleDeg.toFixed(2)}°` : "—"}
+                    {bothLocked && <span className="ml-2 opacity-50">(both locked)</span>}
+                  </button>
+                )}
+                <LockButton locked={angleLocked} onToggle={() => toggleAll("angleLocked")} />
+              </div>
+            </div>
+          </>
+        )}
+
+        {!single && (
           <div className="flex items-center gap-1.5">
-            {editingAngle ? (
-              <input
-                autoFocus
-                value={angleInput}
-                onChange={(e) => setAngleInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") applyAngle(); if (e.key === "Escape") setEditingAngle(false); }}
-                onBlur={applyAngle}
-                className="flex-1 px-2 py-1 rounded text-xs outline-none"
-                style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
-              />
-            ) : (
-              <button
-                className="flex-1 text-left px-2 py-1 rounded text-xs"
-                style={{
-                  background: "var(--surface-2)",
-                  color: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.angleLocked ? "var(--text-muted)" : "var(--text)",
-                  border: "1px solid var(--border)",
-                  cursor: (ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) || seg.angleLocked ? "default" : "pointer",
-                }}
-                onClick={() => { if (!(ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked) && !seg.angleLocked) { setAngleInput(angleDeg.toFixed(2)); setEditingAngle(true); } }}
-              >
-                {angleDeg.toFixed(2)}°
-                {ptA.xLocked && ptA.yLocked && ptB.xLocked && ptB.yLocked && <span className="ml-2 opacity-50">(both locked)</span>}
-              </button>
-            )}
-            <LockButton locked={seg.angleLocked} onToggle={toggleAngleLocked} />
+            <LockButton locked={lockedVal} onToggle={() => toggleAll("locked")} />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {lockedVal === "mixed" ? "Locked (mixed)" : lockedVal ? "Locked" : "Unlocked"}
+            </span>
           </div>
-        </div>
+        )}
 
         <div className="flex items-center justify-between">
           <span className="text-xs" style={{ color: "var(--text)" }}>Transparent (door/opening)</span>
-          <button
-            onClick={toggleTransparent}
-            className="w-10 h-5 rounded-full relative transition-colors"
-            style={{ background: seg.transparent ? "#22c55e" : "var(--border)" }}
-          >
-            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.transparent ? "calc(100% - 18px)" : "2px" }} />
-          </button>
+          <MixedToggle value={transparentVal} onToggle={() => toggleAll("transparent")} color="#22c55e" />
         </div>
 
         <div className="flex items-center justify-between">
           <span className="text-xs" style={{ color: "var(--text)" }}>Door</span>
-          <button
-            onClick={toggleDoor}
-            className="w-10 h-5 rounded-full relative transition-colors"
-            style={{ background: seg.door ? "#a855f7" : "var(--border)" }}
-          >
-            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.door ? "calc(100% - 18px)" : "2px" }} />
-          </button>
+          <MixedToggle value={doorVal} onToggle={() => toggleAll("door")} color="#a855f7" />
         </div>
 
-        {seg.door && (
+        {allDoors && (
           <div className="space-y-2 pl-2" style={{ borderLeft: "2px solid #a855f7" }}>
             <div>
               <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Hinge side</label>
               <div className="flex gap-1">
                 <button
-                  onClick={() => setDoorHingeSide("left")}
+                  onClick={() => setAllDoorHingeSide("left")}
                   className="flex-1 py-1 rounded text-xs"
                   style={{
-                    background: seg.doorHingeSide === "left" ? "#a855f7" : "var(--surface-2)",
-                    color: seg.doorHingeSide === "left" ? "#fff" : "var(--text)",
+                    background: doorHingeVal === "left" ? "#a855f7" : "var(--surface-2)",
+                    color: doorHingeVal === "left" ? "#fff" : "var(--text)",
                     border: "1px solid var(--border)",
+                    opacity: doorHingeVal === "mixed" ? 0.6 : 1,
                   }}
                 >
                   ◄ Left
                 </button>
                 <button
-                  onClick={() => setDoorHingeSide("right")}
+                  onClick={() => setAllDoorHingeSide("right")}
                   className="flex-1 py-1 rounded text-xs"
                   style={{
-                    background: seg.doorHingeSide === "right" ? "#a855f7" : "var(--surface-2)",
-                    color: seg.doorHingeSide === "right" ? "#fff" : "var(--text)",
+                    background: doorHingeVal === "right" ? "#a855f7" : "var(--surface-2)",
+                    color: doorHingeVal === "right" ? "#fff" : "var(--text)",
                     border: "1px solid var(--border)",
+                    opacity: doorHingeVal === "mixed" ? 0.6 : 1,
                   }}
                 >
                   Right ►
@@ -245,22 +279,22 @@ export default function SegmentAttributes({ segmentId }: Props) {
               <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Swing direction</label>
               <div className="flex gap-1">
                 <button
-                  onClick={() => setDoorSwingIn(false)}
+                  onClick={() => setAllDoorSwingIn(false)}
                   className="flex-1 py-1 rounded text-xs"
                   style={{
-                    background: !seg.doorSwingIn ? "#a855f7" : "var(--surface-2)",
-                    color: !seg.doorSwingIn ? "#fff" : "var(--text)",
+                    background: doorSwingVal === false ? "#a855f7" : "var(--surface-2)",
+                    color: doorSwingVal === false ? "#fff" : "var(--text)",
                     border: "1px solid var(--border)",
                   }}
                 >
                   Inward
                 </button>
                 <button
-                  onClick={() => setDoorSwingIn(true)}
+                  onClick={() => setAllDoorSwingIn(true)}
                   className="flex-1 py-1 rounded text-xs"
                   style={{
-                    background: seg.doorSwingIn ? "#a855f7" : "var(--surface-2)",
-                    color: seg.doorSwingIn ? "#fff" : "var(--text)",
+                    background: doorSwingVal === true ? "#a855f7" : "var(--surface-2)",
+                    color: doorSwingVal === true ? "#fff" : "var(--text)",
                     border: "1px solid var(--border)",
                   }}
                 >
@@ -273,39 +307,59 @@ export default function SegmentAttributes({ segmentId }: Props) {
 
         <div className="flex items-center justify-between">
           <span className="text-xs" style={{ color: "var(--text)" }}>Show dimension</span>
-          <button
-            onClick={async () => {
-              storeUpdateSegment(segmentId, { showDimensions: !seg.showDimensions });
-              await updateSegment(modelId, segmentId, { showDimensions: !seg.showDimensions });
-            }}
-            className="w-10 h-5 rounded-full relative transition-colors"
-            style={{ background: seg.showDimensions ? "var(--accent)" : "var(--border)" }}
-          >
-            <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: seg.showDimensions ? "calc(100% - 18px)" : "2px" }} />
-          </button>
+          <MixedToggle value={showDimVal} onToggle={() => toggleAll("showDimensions")} color="var(--accent)" />
         </div>
 
-        <button
-          onClick={handleSplit}
-          className="w-full py-1.5 rounded text-xs"
-          style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
-        >
-          Split segment
-        </button>
+        {single && (
+          <button
+            onClick={handleSplit}
+            className="w-full py-1.5 rounded text-xs"
+            style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
+          >
+            Split segment
+          </button>
+        )}
       </div>
     </PanelSection>
   );
 }
 
-function LockButton({ locked, onToggle }: { locked: boolean; onToggle: () => void }) {
+function MixedToggle({ value, onToggle, color }: { value: boolean | "mixed"; onToggle: () => void; color: string }) {
+  const isOn = value === true;
+  const isMixed = value === "mixed";
   return (
     <button
       onClick={onToggle}
-      title={locked ? "Unlock" : "Lock"}
-      className="shrink-0 p-0.5 rounded"
-      style={{ color: locked ? "var(--accent)" : "var(--text-muted)" }}
+      className="w-10 h-5 rounded-full relative transition-colors"
+      style={{ background: isOn ? color : isMixed ? "var(--text-muted)" : "var(--border)" }}
+      title={isMixed ? "Mixed — click to enable all" : undefined}
     >
-      {locked ? (
+      <span
+        className="absolute top-0.5 w-4 h-4 rounded-full transition-transform flex items-center justify-center"
+        style={{
+          background: "#fff",
+          left: isOn ? "calc(100% - 18px)" : isMixed ? "calc(50% - 8px)" : "2px",
+          fontSize: 9,
+          color: isMixed ? "var(--text-muted)" : "transparent",
+        }}
+      >
+        {isMixed ? "–" : ""}
+      </span>
+    </button>
+  );
+}
+
+function LockButton({ locked, onToggle }: { locked: boolean | "mixed"; onToggle: () => void }) {
+  const isLocked = locked === true;
+  const isMixed = locked === "mixed";
+  return (
+    <button
+      onClick={onToggle}
+      title={isLocked ? "Unlock" : isMixed ? "Mixed — click to lock all" : "Lock"}
+      className="shrink-0 p-0.5 rounded"
+      style={{ color: isLocked ? "var(--accent)" : "var(--text-muted)", opacity: isMixed ? 0.6 : 1 }}
+    >
+      {isLocked ? (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
           <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z"/>
         </svg>

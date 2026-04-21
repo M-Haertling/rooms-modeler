@@ -18,7 +18,7 @@ export default function StandardObject({ objectId }: Props) {
   const allSegments = useStore((s) => s.segments);
   const selectedObjectIds = useStore((s) => s.selectedObjectIds);
   const selectedPointIds = useStore((s) => s.selectedPointIds);
-  const selectedSegmentId = useStore((s) => s.selectedSegmentId);
+  const selectedSegmentIds = useStore((s) => s.selectedSegmentIds);
   const selectObject = useStore((s) => s.selectObject);
   const movePoint = useStore((s) => s.movePoint);
   const zoom = useStore((s) => s.zoom);
@@ -146,7 +146,7 @@ export default function StandardObject({ objectId }: Props) {
         <SegmentLine
           key={seg.id}
           segmentId={seg.id}
-          isSelected={selectedSegmentId === seg.id}
+          isSelected={selectedSegmentIds.has(seg.id)}
           isParentSelected={isObjSelected}
         />
       ))}

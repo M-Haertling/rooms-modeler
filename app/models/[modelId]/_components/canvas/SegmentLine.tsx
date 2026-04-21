@@ -116,7 +116,7 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onMouseMove={handleMouseMove}
-        onClick={(e) => { e.stopPropagation(); selectSegment(segmentId); }}
+        onClick={(e) => { e.stopPropagation(); selectSegment(segmentId, e.shiftKey); }}
       />
       {/* Hover tooltip — rendered in SVG coordinates (outside the world group scale) */}
       {hovered && (

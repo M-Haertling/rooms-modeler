@@ -43,7 +43,7 @@ export default function QuickToolbar() {
   const zoom = useStore((s) => s.zoom);
   const panOffset = useStore((s) => s.panOffset);
   const selectedPointIds = useStore((s) => s.selectedPointIds);
-  const selectedSegmentId = useStore((s) => s.selectedSegmentId);
+  const selectedSegmentIds = useStore((s) => s.selectedSegmentIds);
   const points = useStore(useShallow((s) => s.points));
   const segments = useStore(useShallow((s) => s.segments));
   const modelId = useStore((s) => s.modelId);
@@ -60,10 +60,12 @@ export default function QuickToolbar() {
   const pointIds = [...selectedPointIds];
   const singlePointId = pointIds.length === 1 ? pointIds[0] : null;
   const pt = singlePointId ? points[singlePointId] : null;
-  const seg = selectedSegmentId ? segments[selectedSegmentId] : null;
+  const segIds = [...selectedSegmentIds];
+  const singleSegmentId = segIds.length === 1 ? segIds[0] : null;
+  const seg = singleSegmentId ? segments[singleSegmentId] : null;
 
   // Reset drag when selection changes
-  const selectionKey = `${singlePointId ?? ""}:${selectedSegmentId ?? ""}`;
+  const selectionKey = `${singlePointId ?? ""}:${singleSegmentId ?? ""}`;
   useEffect(() => { setDragOffset({ x: 0, y: 0 }); }, [selectionKey]);
 
   // Measure actual toolbar width after render

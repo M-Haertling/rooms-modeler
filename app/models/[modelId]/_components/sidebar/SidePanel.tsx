@@ -8,12 +8,13 @@ import ObjectAttributes from "./ObjectAttributes";
 export default function SidePanel() {
   const mode = useStore((s) => s.sidePanelMode);
   const selectedPointIds = useStore((s) => s.selectedPointIds);
-  const selectedSegmentId = useStore((s) => s.selectedSegmentId);
+  const selectedSegmentIds = useStore((s) => s.selectedSegmentIds);
   const selectedObjectIds = useStore((s) => s.selectedObjectIds);
 
   if (!mode) return null;
 
-  const firstPointId = [...selectedPointIds][0];
+  const pointIds = [...selectedPointIds];
+  const segmentIds = [...selectedSegmentIds];
   const firstObjectId = [...selectedObjectIds][0];
 
   return (
@@ -21,11 +22,11 @@ export default function SidePanel() {
       className="w-72 shrink-0 overflow-y-auto border-l flex flex-col gap-0"
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}
     >
-      {mode === "point" && firstPointId && (
-        <PointAttributes pointId={firstPointId} />
+      {mode === "point" && pointIds.length > 0 && (
+        <PointAttributes pointIds={pointIds} />
       )}
-      {mode === "segment" && selectedSegmentId && (
-        <SegmentAttributes segmentId={selectedSegmentId} />
+      {mode === "segment" && segmentIds.length > 0 && (
+        <SegmentAttributes segmentIds={segmentIds} />
       )}
       {firstObjectId && (
         <ObjectAttributes objectId={firstObjectId} />
