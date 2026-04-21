@@ -178,6 +178,7 @@ export function dbUpdateObject(
   if (fields.height3d !== undefined) { updates.push("height_3d = ?"); values.push(fields.height3d); }
   if (fields.customDims !== undefined) { updates.push("custom_dims = ?"); values.push(JSON.stringify(fields.customDims)); }
   if (fields.rotation !== undefined) { updates.push("rotation = ?"); values.push(fields.rotation); }
+  if (fields.sortOrder !== undefined) { updates.push("sort_order = ?"); values.push(fields.sortOrder); }
   if (fields.showDimensions !== undefined) { updates.push("show_dimensions = ?"); values.push(fields.showDimensions ? 1 : 0); }
   if (fields.fillEnabled !== undefined) { updates.push("fill_enabled = ?"); values.push(fields.fillEnabled ? 1 : 0); }
 

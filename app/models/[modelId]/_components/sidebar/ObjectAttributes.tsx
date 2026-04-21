@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useStore } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import { updateObject, deleteObject, duplicateObject } from "@/actions/objects";
@@ -28,8 +28,44 @@ export default function ObjectAttributes({ objectId }: Props) {
 
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [nameValue, setNameValue] = useState(obj?.name ?? "");
+  const nameRef = useRef<HTMLInputElement>(null);
+  const pendingNameRef = useRef<{ objectId: string; modelId: string; value: string; savedName: string } | null>(null);
+
+  useEffect(() => { setNameValue(obj?.name ?? ""); }, [objectId, obj?.name]);
+
+  const storeUpdateObjectRef = useRef(storeUpdateObject);
+  storeUpdateObjectRef.current = storeUpdateObject;
+
+  useEffect(() => {
+    return () => {
+      const p = pendingNameRef.current;
+      if (!p) return;
+      const trimmed = p.value.trim();
+      if (trimmed && trimmed !== p.savedName) {
+        storeUpdateObjectRef.current(p.objectId, { name: trimmed });
+        updateObject(p.modelId, p.objectId, { name: trimmed });
+      }
+    };
+  }, []);
 
   if (!obj) return null;
+
+  function commitName() {
+    const trimmed = nameValue.trim();
+    if (trimmed && trimmed !== obj.name) patch({ name: trimmed });
+    pendingNameRef.current = null;
+  }
+
+  function handleNameChange(value: string) {
+    setNameValue(value);
+    pendingNameRef.current = { objectId, modelId, value, savedName: obj.name };
+  }
+
+  function handleNameKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") { e.currentTarget.blur(); commitName(); }
+    if (e.key === "Escape") { setNameValue(obj.name); pendingNameRef.current = null; e.currentTarget.blur(); }
+  }
 
   async function patch(fields: Partial<CanvasObject>) {
     storeUpdateObject(objectId, fields);
@@ -80,7 +116,15 @@ export default function ObjectAttributes({ objectId }: Props) {
     <>
       <PanelSection title="Object">
         <Field label="Name">
-          <input defaultValue={obj.name} onBlur={(e) => patch({ name: e.target.value })} className={inputCls} style={inputStyle} />
+          <input
+            ref={nameRef}
+            value={nameValue}
+            onChange={(e) => handleNameChange(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={handleNameKeyDown}
+            className={inputCls}
+            style={inputStyle}
+          />
         </Field>
         <Field label="Type">
           <select value={obj.objectTypeId ?? ""} onChange={(e) => patch({ objectTypeId: e.target.value || null })} className={inputCls} style={inputStyle}>
