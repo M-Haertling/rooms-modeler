@@ -162,12 +162,24 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
 
   return (
     <g>
+      {/* Selection glow */}
+      {isSelected && (
+        <line
+          x1={ptA.x} y1={ptA.y}
+          x2={ptB.x} y2={ptB.y}
+          stroke={seg.transparent ? "#22c55e" : "#6c63ff"}
+          strokeWidth={10 / zoom}
+          strokeOpacity={0.3}
+          strokeLinecap="round"
+          style={{ pointerEvents: "none" }}
+        />
+      )}
       {/* Visible line */}
       {showLine && <line
         x1={ptA.x} y1={ptA.y}
         x2={ptB.x} y2={ptB.y}
         stroke={stroke}
-        strokeWidth={isSelected ? 2 / zoom : 1.5 / zoom}
+        strokeWidth={isSelected ? 3 / zoom : 1.5 / zoom}
         strokeDasharray={seg.locked ? `${4 / zoom},${3 / zoom}` : undefined}
         style={{ pointerEvents: "none" }}
       />}
