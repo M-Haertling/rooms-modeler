@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useStore } from "@/store";
 import { distance } from "@/lib/geometry";
 import { formatLength } from "@/lib/units";
+import { updatePoint as serverUpdatePoint } from "@/actions/objects";
 
 interface Props {
   segmentId: string;
@@ -18,9 +19,79 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
   const obj = useStore((s) => seg && s.objects[seg.objectId]);
   const unit = useStore((s) => s.unit);
   const zoom = useStore((s) => s.zoom);
+  const panOffset = useStore((s) => s.panOffset);
+  const modelId = useStore((s) => s.modelId);
   const selectSegment = useStore((s) => s.selectSegment);
+  const movePoint = useStore((s) => s.movePoint);
+  const pushHistory = useStore((s) => s.pushHistory);
   const [hovered, setHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
+  const isDragging = useRef(false);
+  const dragStart = useRef<{ wx: number; wy: number; ax: number; ay: number; bx: number; by: number } | null>(null);
+  const hitRef = useRef<SVGLineElement>(null);
+
+  const screenToWorld = useCallback(
+    (clientX: number, clientY: number) => {
+      const svg = hitRef.current?.ownerSVGElement;
+      if (!svg) return null;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return null;
+      const pt = svg.createSVGPoint();
+      pt.x = clientX; pt.y = clientY;
+      const p = pt.matrixTransform(ctm.inverse());
+      return { x: (p.x - panOffset.x) / zoom, y: (p.y - panOffset.y) / zoom };
+    },
+    [zoom, panOffset]
+  );
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      selectSegment(segmentId, e.shiftKey);
+      if (seg?.locked) return;
+      const world = screenToWorld(e.clientX, e.clientY);
+      if (!world || !ptA || !ptB) return;
+      pushHistory();
+      isDragging.current = true;
+      dragStart.current = { wx: world.x, wy: world.y, ax: ptA.x, ay: ptA.y, bx: ptB.x, by: ptB.y };
+      (e.currentTarget as SVGLineElement).setPointerCapture(e.pointerId);
+    },
+    [seg, ptA, ptB, segmentId, selectSegment, screenToWorld, pushHistory]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isDragging.current || !dragStart.current || !seg || !ptA || !ptB) return;
+      e.stopPropagation();
+      const world = screenToWorld(e.clientX, e.clientY);
+      if (!world) return;
+      const dx = world.x - dragStart.current.wx;
+      const dy = world.y - dragStart.current.wy;
+      movePoint(seg.pointAId,
+        ptA.xLocked ? dragStart.current.ax : dragStart.current.ax + dx,
+        ptA.yLocked ? dragStart.current.ay : dragStart.current.ay + dy,
+      );
+      movePoint(seg.pointBId,
+        ptB.xLocked ? dragStart.current.bx : dragStart.current.bx + dx,
+        ptB.yLocked ? dragStart.current.by : dragStart.current.by + dy,
+      );
+    },
+    [seg, ptA, ptB, screenToWorld, movePoint]
+  );
+
+  const handlePointerUp = useCallback(
+    async (e: React.PointerEvent) => {
+      if (!isDragging.current || !dragStart.current) return;
+      e.stopPropagation();
+      isDragging.current = false;
+      if (ptA) await serverUpdatePoint(modelId, seg!.pointAId, ptA.x, ptA.y);
+      if (ptB) await serverUpdatePoint(modelId, seg!.pointBId, ptB.x, ptB.y);
+      dragStart.current = null;
+    },
+    [modelId, seg, ptA, ptB]
+  );
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const svg = (e.currentTarget as SVGLineElement).ownerSVGElement;
@@ -189,15 +260,18 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
       {windowEl}
       {/* Fat invisible hit area */}
       <line
+        ref={hitRef}
         x1={ptA.x} y1={ptA.y}
         x2={ptB.x} y2={ptB.y}
         stroke="transparent"
         strokeWidth={12 / zoom}
-        style={{ cursor: "pointer" }}
+        style={{ cursor: seg.locked ? "not-allowed" : "grab", touchAction: "none" }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onMouseMove={handleMouseMove}
-        onClick={(e) => { e.stopPropagation(); selectSegment(segmentId, e.shiftKey); }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
       />
       {/* Hover tooltip — rendered in SVG coordinates (outside the world group scale) */}
       {hovered && (

@@ -14,3 +14,8 @@ export function pointInLasso(point: Vec2, lasso: LassoRect): boolean {
   const maxY = lasso.h >= 0 ? lasso.y + lasso.h : lasso.y;
   return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
 }
+
+// A segment is in the lasso if its midpoint falls within the rect.
+export function segmentInLasso(ptA: Vec2, ptB: Vec2, lasso: LassoRect): boolean {
+  return pointInLasso({ x: (ptA.x + ptB.x) / 2, y: (ptA.y + ptB.y) / 2 }, lasso);
+}

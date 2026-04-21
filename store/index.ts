@@ -109,6 +109,7 @@ interface StoreActions {
   selectSegment(id: string | null, additive?: boolean): void;
   selectObject(id: string, additive?: boolean): void;
   addPointsToSelection(ids: string[]): void;
+  addSegmentsToSelection(ids: string[]): void;
   clearSelection(): void;
   setLasso(rect: LassoRect | null): void;
   setSnapIndicator(pointId: string | null): void;
@@ -385,6 +386,17 @@ export const useStore = create<Store>()(
       set((s) => {
         for (const id of ids) s.selectedPointIds.add(id);
         if (ids.length > 0) s.sidePanelMode = "point";
+      });
+    },
+
+    addSegmentsToSelection(ids) {
+      set((s) => {
+        for (const id of ids) s.selectedSegmentIds.add(id);
+        if (ids.length > 0) {
+          const seg = s.segments[ids[0]];
+          if (seg) s.selectedObjectIds = new Set([seg.objectId]);
+          s.sidePanelMode = "segment";
+        }
       });
     },
 

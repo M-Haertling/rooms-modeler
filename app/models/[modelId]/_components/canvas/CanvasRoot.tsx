@@ -2,7 +2,7 @@
 
 import { useRef, useCallback } from "react";
 import { useStore } from "@/store";
-import { pointInLasso } from "@/lib/lasso";
+import { pointInLasso, segmentInLasso } from "@/lib/lasso";
 import type { LassoRect } from "@/lib/lasso";
 import CanvasGrid from "./CanvasGrid";
 import LayerRenderer from "./LayerRenderer";
@@ -21,7 +21,9 @@ export default function CanvasRoot() {
   const lassoRect = useStore((s) => s.lassoRect);
   const clearSelection = useStore((s) => s.clearSelection);
   const addPointsToSelection = useStore((s) => s.addPointsToSelection);
+  const addSegmentsToSelection = useStore((s) => s.addSegmentsToSelection);
   const points = useStore((s) => s.points);
+  const segments = useStore((s) => s.segments);
 
   const clientToWorld = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -112,15 +114,24 @@ export default function CanvasRoot() {
       }
 
       if (lassoStartRef.current && lassoRect) {
-        const matched = Object.values(points)
-          .filter((p) => pointInLasso({ x: p.x, y: p.y }, lassoRect as LassoRect))
+        const lasso = lassoRect as LassoRect;
+        const matchedPoints = Object.values(points)
+          .filter((p) => pointInLasso({ x: p.x, y: p.y }, lasso))
           .map((p) => p.id);
-        if (matched.length > 0) addPointsToSelection(matched);
+        const matchedSegments = Object.values(segments)
+          .filter((seg) => {
+            const ptA = points[seg.pointAId];
+            const ptB = points[seg.pointBId];
+            return ptA && ptB && segmentInLasso({ x: ptA.x, y: ptA.y }, { x: ptB.x, y: ptB.y }, lasso);
+          })
+          .map((seg) => seg.id);
+        if (matchedPoints.length > 0) addPointsToSelection(matchedPoints);
+        if (matchedSegments.length > 0) addSegmentsToSelection(matchedSegments);
       }
       lassoStartRef.current = null;
       setLasso(null);
     },
-    [lassoRect, points, addPointsToSelection, setLasso]
+    [lassoRect, points, segments, addPointsToSelection, addSegmentsToSelection, setLasso]
   );
 
   const scale = zoom;
