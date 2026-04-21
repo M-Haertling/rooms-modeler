@@ -27,7 +27,7 @@ export interface CanvasSegment {
   angleLocked: boolean;
   transparent: boolean;
   showDimensions: boolean;
-  door: boolean;
+  segmentType: "solid" | "door" | "window";
   doorSwingIn: boolean;
   doorHingeSide: "left" | "right";
 }

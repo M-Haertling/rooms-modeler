@@ -50,11 +50,11 @@ export default function SegmentAttributes({ segmentIds }: Props) {
   const lockedVal = getMixed(segs.map((s) => s.locked));
   const angleLocked = getMixed(segs.map((s) => s.angleLocked));
   const transparentVal = getMixed(segs.map((s) => s.transparent));
-  const doorVal = getMixed(segs.map((s) => s.door));
+  const segTypeVal = getMixed(segs.map((s) => s.segmentType));
   const showDimVal = getMixed(segs.map((s) => s.showDimensions));
   const doorHingeVal = getMixed(segs.map((s) => s.doorHingeSide));
   const doorSwingVal = getMixed(segs.map((s) => s.doorSwingIn));
-  const allDoors = segs.every((s) => s.door);
+  const allDoors = segs.every((s) => s.segmentType === "door");
 
   async function toggleAll(field: keyof typeof seg) {
     const current = getMixed(segs.map((s) => s[field] as boolean));
@@ -62,6 +62,13 @@ export default function SegmentAttributes({ segmentIds }: Props) {
     for (const s of segs) {
       storeUpdateSegment(s.id, { [field]: val });
       await updateSegment(modelId, s.id, { [field]: val });
+    }
+  }
+
+  async function setAllSegmentType(type: "solid" | "door" | "window") {
+    for (const s of segs) {
+      storeUpdateSegment(s.id, { segmentType: type });
+      await updateSegment(modelId, s.id, { segmentType: type });
     }
   }
 
@@ -239,9 +246,29 @@ export default function SegmentAttributes({ segmentIds }: Props) {
           <MixedToggle value={transparentVal} onToggle={() => toggleAll("transparent")} color="#22c55e" />
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: "var(--text)" }}>Door</span>
-          <MixedToggle value={doorVal} onToggle={() => toggleAll("door")} color="#a855f7" />
+        <div>
+          <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Segment type</label>
+          <div className="flex gap-1">
+            {(["solid", "door", "window"] as const).map((type) => {
+              const active = segTypeVal === type;
+              const activeColor = type === "window" ? "#3b82f6" : type === "door" ? "#a855f7" : "var(--text-muted)";
+              return (
+                <button
+                  key={type}
+                  onClick={() => setAllSegmentType(type)}
+                  className="flex-1 py-1 rounded text-xs capitalize"
+                  style={{
+                    background: active ? activeColor : "var(--surface-2)",
+                    color: active ? "#fff" : "var(--text)",
+                    border: `1px solid ${active ? activeColor : "var(--border)"}`,
+                    opacity: segTypeVal === "mixed" && !active ? 0.6 : 1,
+                  }}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {allDoors && (

@@ -52,7 +52,7 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
 
   // Door arc rendering
   let doorEl: React.ReactNode = null;
-  if (seg.door && len > 0) {
+  if (seg.segmentType === "door" && len > 0) {
     const isHingeAtA = seg.doorHingeSide === "left";
     const hinge = isHingeAtA ? { x: ptA.x, y: ptA.y } : { x: ptB.x, y: ptB.y };
     const free = isHingeAtA ? { x: ptB.x, y: ptB.y } : { x: ptA.x, y: ptA.y };
@@ -93,6 +93,73 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
     );
   }
 
+  // Window rendering
+  let windowEl: React.ReactNode = null;
+  if (seg.segmentType === "window" && len > 0) {
+    const segTheta = Math.atan2(ptB.y - ptA.y, ptB.x - ptA.x);
+    const px = Math.cos(segTheta + Math.PI / 2);
+    const py = Math.sin(segTheta + Math.PI / 2);
+    const dx = Math.cos(segTheta);
+    const dy = Math.sin(segTheta);
+
+    const glassOffset = 0.15;
+    const jambExt = 0.12;
+    const lightDepth = Math.min(len * 0.8, 2.0);
+    const lightFlare = Math.min(len * 0.25, 0.8);
+
+    const windowColor = isSelected ? "#6c63ff" : "#3b82f6";
+    const sw = (isSelected ? 2 : 1.5) / zoom;
+
+    // Inner glass line
+    const iax = ptA.x + px * glassOffset;
+    const iay = ptA.y + py * glassOffset;
+    const ibx = ptB.x + px * glassOffset;
+    const iby = ptB.y + py * glassOffset;
+
+    // Jambs at each end
+    const ja1x = ptA.x - px * jambExt;
+    const ja1y = ptA.y - py * jambExt;
+    const ja2x = ptA.x + px * (glassOffset + jambExt);
+    const ja2y = ptA.y + py * (glassOffset + jambExt);
+    const jb1x = ptB.x - px * jambExt;
+    const jb1y = ptB.y - py * jambExt;
+    const jb2x = ptB.x + px * (glassOffset + jambExt);
+    const jb2y = ptB.y + py * (glassOffset + jambExt);
+
+    // Light cone trapezoid from inner glass line outward
+    const lp1x = iax;
+    const lp1y = iay;
+    const lp2x = ibx;
+    const lp2y = iby;
+    const lp3x = ibx + px * lightDepth + dx * lightFlare;
+    const lp3y = iby + py * lightDepth + dy * lightFlare;
+    const lp4x = iax + px * lightDepth - dx * lightFlare;
+    const lp4y = iay + py * lightDepth - dy * lightFlare;
+
+    windowEl = (
+      <g style={{ pointerEvents: "none" }}>
+        {/* Light beam */}
+        <polygon
+          points={`${lp1x},${lp1y} ${lp2x},${lp2y} ${lp3x},${lp3y} ${lp4x},${lp4y}`}
+          fill="rgba(255,248,176,0.18)"
+          stroke="none"
+        />
+        {/* Outer glass pane */}
+        <line x1={ptA.x} y1={ptA.y} x2={ptB.x} y2={ptB.y}
+          stroke={windowColor} strokeWidth={sw * 1.5} />
+        {/* Inner glass pane */}
+        <line x1={iax} y1={iay} x2={ibx} y2={iby}
+          stroke={windowColor} strokeWidth={sw} />
+        {/* Jamb A */}
+        <line x1={ja1x} y1={ja1y} x2={ja2x} y2={ja2y}
+          stroke={windowColor} strokeWidth={sw} />
+        {/* Jamb B */}
+        <line x1={jb1x} y1={jb1y} x2={jb2x} y2={jb2y}
+          stroke={windowColor} strokeWidth={sw} />
+      </g>
+    );
+  }
+
   return (
     <g>
       {/* Visible line */}
@@ -106,6 +173,8 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
       />}
       {/* Door arc */}
       {doorEl}
+      {/* Window overlay */}
+      {windowEl}
       {/* Fat invisible hit area */}
       <line
         x1={ptA.x} y1={ptA.y}

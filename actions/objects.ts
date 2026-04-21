@@ -71,7 +71,7 @@ export async function deletePoint(
 export async function updateSegment(
   modelId: string,
   segmentId: string,
-  fields: { name?: string | null; locked?: boolean; angleLocked?: boolean; transparent?: boolean; showDimensions?: boolean; door?: boolean; doorSwingIn?: boolean; doorHingeSide?: "left" | "right" }
+  fields: { name?: string | null; locked?: boolean; angleLocked?: boolean; transparent?: boolean; showDimensions?: boolean; segmentType?: "solid" | "door" | "window"; doorSwingIn?: boolean; doorHingeSide?: "left" | "right" }
 ): Promise<void> {
   dbUpdateSegment(await getDb(resolveModelPath(modelId)), segmentId, fields);
 }

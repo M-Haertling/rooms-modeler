@@ -46,7 +46,7 @@ export async function saveTemplate(
     pointAId: r.point_a_id as string, pointBId: r.point_b_id as string,
     name: (r.name as string | null) ?? null, locked: Boolean(r.locked), angleLocked: Boolean(r.angle_locked),
     transparent: Boolean(r.transparent), showDimensions: Boolean(r.show_dimensions),
-    door: false, doorSwingIn: true, doorHingeSide: "left" as const,
+    segmentType: "solid" as const, doorSwingIn: true, doorHingeSide: "left" as const,
   }));
 
   const normalizedData = normalizeObject(points, segments);
@@ -107,7 +107,7 @@ export async function instantiateFromTemplate(
       const aId = pointIdMap.get(s.pointAId)!;
       const bId = pointIdMap.get(s.pointBId)!;
       db.prepare("INSERT INTO segments (id, object_id, point_a_id, point_b_id, name) VALUES (?, ?, ?, ?, ?)").run(sid, objId, aId, bId, s.name);
-      createdSegments.push({ id: sid, objectId: objId, pointAId: aId, pointBId: bId, name: s.name, locked: false, angleLocked: false, transparent: false, showDimensions: false, door: false, doorSwingIn: true, doorHingeSide: "left" });
+      createdSegments.push({ id: sid, objectId: objId, pointAId: aId, pointBId: bId, name: s.name, locked: false, angleLocked: false, transparent: false, showDimensions: false, segmentType: "solid", doorSwingIn: true, doorHingeSide: "left" });
     }
 
     db.exec("COMMIT");
