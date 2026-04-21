@@ -272,6 +272,7 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onClick={(e) => e.stopPropagation()}
       />
       {/* Hover tooltip — rendered in SVG coordinates (outside the world group scale) */}
       {hovered && (

@@ -66,6 +66,7 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
       let { x, y } = world;
 
       // Snap to nearby snappable points
+      let positionSnapped = false;
       if (pt.snapping) {
         for (const p of Object.values(allPoints)) {
           if (p.id === pointId || !p.snapping) continue;
@@ -73,14 +74,33 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
             x = p.x;
             y = p.y;
             setSnapIndicator(p.id);
+            positionSnapped = true;
             break;
           }
         }
-        // If we didn't snap, clear indicator
-        const snappedTo = Object.values(allPoints).find(
-          (p) => p.id !== pointId && p.snapping && distance({ x, y }, { x: p.x, y: p.y }) < SNAP_THRESHOLD
-        );
-        if (!snappedTo) setSnapIndicator(null);
+        if (!positionSnapped) setSnapIndicator(null);
+      }
+
+      // Angle snap to 5-degree increments (skip when position-snapped to another point)
+      if (!positionSnapped) {
+        const ANGLE_STEP = Math.PI / 36; // 5 degrees
+        let bestX = x, bestY = y, bestDist = Infinity;
+        for (const seg of Object.values(allSegments)) {
+          if (seg.pointAId !== pointId && seg.pointBId !== pointId) continue;
+          const anchorId = seg.pointAId === pointId ? seg.pointBId : seg.pointAId;
+          const anchor = allPoints[anchorId];
+          if (!anchor) continue;
+          const dx = x - anchor.x;
+          const dy = y - anchor.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist === 0) continue;
+          const snappedAngle = Math.round(Math.atan2(dy, dx) / ANGLE_STEP) * ANGLE_STEP;
+          const sx = anchor.x + dist * Math.cos(snappedAngle);
+          const sy = anchor.y + dist * Math.sin(snappedAngle);
+          const d = Math.sqrt((sx - x) ** 2 + (sy - y) ** 2);
+          if (d < bestDist) { bestDist = d; bestX = sx; bestY = sy; }
+        }
+        x = bestX; y = bestY;
       }
 
       // Locked-segment length constraints

@@ -29,10 +29,12 @@ export default function ObjectAttributes({ objectId }: Props) {
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [nameValue, setNameValue] = useState(obj?.name ?? "");
+  const [rotationValue, setRotationValue] = useState(String(obj?.rotation ?? 0));
   const nameRef = useRef<HTMLInputElement>(null);
   const pendingNameRef = useRef<{ objectId: string; modelId: string; value: string; savedName: string } | null>(null);
 
   useEffect(() => { setNameValue(obj?.name ?? ""); }, [objectId, obj?.name]);
+  useEffect(() => { setRotationValue(String(obj?.rotation ?? 0)); }, [objectId, obj?.rotation]);
 
   const storeUpdateObjectRef = useRef(storeUpdateObject);
   storeUpdateObjectRef.current = storeUpdateObject;
@@ -200,10 +202,40 @@ export default function ObjectAttributes({ objectId }: Props) {
       </PanelSection>
 
       <PanelSection title="Actions">
-        <div className="flex gap-2">
-          <button onClick={() => handleRotate(-90)} className="flex-1 py-1 rounded text-xs" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}>↺ 90°</button>
-          <button onClick={() => handleRotate(90)} className="flex-1 py-1 rounded text-xs" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}>↻ 90°</button>
-        </div>
+        <Field label="Rotation">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleRotate(-90)}
+              className="px-2 py-1 rounded text-xs"
+              style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
+            >↺</button>
+            <input
+              type="number"
+              value={rotationValue}
+              onChange={(e) => setRotationValue(e.target.value)}
+              onBlur={() => {
+                const deg = parseFloat(rotationValue);
+                if (isNaN(deg)) { setRotationValue(String(obj.rotation)); return; }
+                const normalized = ((deg % 360) + 360) % 360;
+                const delta = normalized - obj.rotation;
+                if (Math.abs(delta) > 0.001) handleRotate(delta);
+                setRotationValue(String(normalized));
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") { setRotationValue(String(obj.rotation)); e.currentTarget.blur(); }
+              }}
+              className={inputCls + " flex-1 text-center"}
+              style={inputStyle}
+            />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>°</span>
+            <button
+              onClick={() => handleRotate(90)}
+              className="px-2 py-1 rounded text-xs"
+              style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
+            >↻</button>
+          </div>
+        </Field>
         <button onClick={handleDuplicate} className="w-full py-1.5 rounded text-xs" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}>Duplicate</button>
         <button
           onClick={() => { setTemplateName(obj.name); setSavingTemplate(true); }}
