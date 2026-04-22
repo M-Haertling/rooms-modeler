@@ -387,6 +387,7 @@ function LayerRow({
   const layer = allLayers[layerId];
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   if (!layer) return null;
@@ -544,6 +545,20 @@ function LayerRow({
         }}
       >
         <button
+          onClick={() => setCollapsed((c) => !c)}
+          className="shrink-0 flex items-center justify-center w-4"
+          style={{
+            color: "var(--text-muted)",
+            transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+            transition: "transform 150ms",
+          }}
+          title={collapsed ? "Expand layer" : "Collapse layer"}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+            <path d="M5 7 L1 3 L9 3 Z" />
+          </svg>
+        </button>
+        <button
           onClick={toggleHidden}
           className="shrink-0 flex items-center justify-center w-5"
           style={{ color: layer.hidden ? "var(--text-muted)" : "var(--text)" }}
@@ -610,7 +625,7 @@ function LayerRow({
         </button>
       </div>
 
-      {layerObjects.map((obj) => (
+      {!collapsed && layerObjects.map((obj) => (
         <ObjectRow
           key={obj.id}
           object={obj}
@@ -622,7 +637,7 @@ function LayerRow({
         />
       ))}
 
-      {children.map((child) => (
+      {!collapsed && children.map((child) => (
         <LayerRow
           key={child.id}
           layerId={child.id}
