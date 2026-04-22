@@ -60,6 +60,7 @@ export default function StandardObject({ objectId }: Props) {
   };
 
   const handleFillPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
     if (obj.locked) return;
     e.stopPropagation();
     pushHistory();

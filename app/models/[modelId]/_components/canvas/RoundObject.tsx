@@ -121,6 +121,7 @@ export default function RoundObject({ objectId }: Props) {
 
   const handleBodyPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
       if (obj?.locked || draggingHandle.current) return;
       e.stopPropagation();
       pushHistory();

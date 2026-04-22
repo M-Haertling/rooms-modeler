@@ -45,6 +45,7 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
       e.stopPropagation();
       if (pt?.xLocked && pt?.yLocked) return;
       pushHistory();

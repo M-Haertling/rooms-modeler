@@ -54,16 +54,16 @@ export default function CanvasRoot() {
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<SVGSVGElement>) => {
-      if (e.target !== svgRef.current && (e.target as SVGElement).tagName !== "rect") {
-        // Hit on a child element — let children handle it
-        return;
-      }
-
       if (e.button === 1 || (e.button === 0 && e.altKey)) {
-        // Middle click or alt+drag = pan
+        // Middle click or alt+drag = pan (always, regardless of target)
         isPanning.current = true;
         panStart.current = { x: e.clientX, y: e.clientY, ox: panOffset.x, oy: panOffset.y };
         (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
+        return;
+      }
+
+      if (e.target !== svgRef.current && (e.target as SVGElement).tagName !== "rect") {
+        // Hit on a child element — let children handle it
         return;
       }
 
