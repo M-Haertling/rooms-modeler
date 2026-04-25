@@ -284,10 +284,10 @@ export default function RoundObject({ objectId }: Props) {
       {/* Name label */}
       {obj.showName && obj.name && (
         <text
-          x={cx} y={cy - ry - (obj.showDimensions ? 22 : 8) / zoom}
+          x={cx} y={cy}
           fontSize={11 / zoom}
           textAnchor="middle"
-          dominantBaseline="auto"
+          dominantBaseline="middle"
           fill={obj.lineColor}
           stroke="var(--surface)"
           strokeWidth={3 / zoom}

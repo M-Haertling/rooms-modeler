@@ -225,10 +225,10 @@ export default function StandardObject({ objectId }: Props) {
         return (
           <text
             x={bbox.cx}
-            y={bbox.minY - 8 / zoom}
+            y={bbox.cy}
             fontSize={11 / zoom}
             textAnchor="middle"
-            dominantBaseline="auto"
+            dominantBaseline="middle"
             fill={obj.lineColor}
             stroke="var(--surface)"
             strokeWidth={3 / zoom}
