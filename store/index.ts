@@ -46,6 +46,7 @@ interface StoreState {
   zoom: number;
   panOffset: { x: number; y: number };
   snapIndicatorPointId: string | null;
+  canvasBackground: "dark" | "blueprint" | "light";
 
   // History
   past: CanvasSnapshot[];
@@ -121,6 +122,7 @@ interface StoreActions {
   setActiveCatalog(catalog: "objects" | "templates" | "layers" | null): void;
   setZoom(zoom: number): void;
   setPanOffset(offset: { x: number; y: number }): void;
+  setCanvasBackground(bg: "dark" | "blueprint" | "light"): void;
 }
 
 type Store = StoreState & StoreActions;
@@ -162,6 +164,7 @@ export const useStore = create<Store>()(
     zoom: 50,
     panOffset: { x: 0, y: 0 },
     snapIndicatorPointId: null,
+    canvasBackground: "dark",
     past: [],
     future: [],
 
@@ -453,6 +456,10 @@ export const useStore = create<Store>()(
 
     setPanOffset(offset) {
       set((s) => { s.panOffset = offset; });
+    },
+
+    setCanvasBackground(bg) {
+      set((s) => { s.canvasBackground = bg; });
     },
   }))
 );

@@ -14,6 +14,15 @@ export default function Toolbar() {
   const setProjectName = useStore((s) => s.setProjectName);
   const setActiveCatalog = useStore((s) => s.setActiveCatalog);
   const activeCatalog = useStore((s) => s.activeCatalog);
+  const canvasBackground = useStore((s) => s.canvasBackground);
+  const setCanvasBackground = useStore((s) => s.setCanvasBackground);
+
+  const BG_CYCLE: Array<"dark" | "blueprint" | "light"> = ["dark", "blueprint", "light"];
+  const BG_LABELS: Record<string, string> = { dark: "Dark", blueprint: "Blueprint", light: "Light" };
+  const cycleBackground = () => {
+    const idx = BG_CYCLE.indexOf(canvasBackground);
+    setCanvasBackground(BG_CYCLE[(idx + 1) % BG_CYCLE.length]);
+  };
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(projectName);
@@ -116,6 +125,14 @@ export default function Toolbar() {
 
       <UnitSelector />
       <ZoomControls />
+      <button
+        onClick={cycleBackground}
+        title={`Canvas background: ${BG_LABELS[canvasBackground]} — click to cycle`}
+        className="px-2 py-1 text-xs rounded transition-colors"
+        style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
+      >
+        {BG_LABELS[canvasBackground]}
+      </button>
 
       <div className="w-px h-5" style={{ background: "var(--border)" }} />
 

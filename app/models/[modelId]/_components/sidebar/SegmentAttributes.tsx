@@ -68,8 +68,15 @@ export default function SegmentAttributes({ segmentIds }: Props) {
 
   async function setAllSegmentType(type: "solid" | "door" | "window") {
     for (const s of segs) {
-      storeUpdateSegment(s.id, { segmentType: type });
-      await updateSegment(modelId, s.id, { segmentType: type });
+      storeUpdateSegment(s.id, { segmentType: type, transparent: false });
+      await updateSegment(modelId, s.id, { segmentType: type, transparent: false });
+    }
+  }
+
+  async function setAllEmpty() {
+    for (const s of segs) {
+      storeUpdateSegment(s.id, { transparent: true });
+      await updateSegment(modelId, s.id, { transparent: true });
     }
   }
 
@@ -264,17 +271,12 @@ export default function SegmentAttributes({ segmentIds }: Props) {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: "var(--text)" }}>Transparent (door/opening)</span>
-          <MixedToggle value={transparentVal} onToggle={() => toggleAll("transparent")} color="#22c55e" />
-        </div>
-
         <div>
           <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Segment type</label>
           <div className="flex gap-1">
             {(["solid", "door", "window"] as const).map((type) => {
-              const active = segTypeVal === type;
-              const activeColor = type === "window" ? "#3b82f6" : type === "door" ? "#a855f7" : "var(--text-muted)";
+              const active = transparentVal !== true && segTypeVal === type;
+              const activeColor = type === "window" ? "#3b82f6" : type === "door" ? "#a855f7" : "#6b7280";
               return (
                 <button
                   key={type}
@@ -284,13 +286,25 @@ export default function SegmentAttributes({ segmentIds }: Props) {
                     background: active ? activeColor : "var(--surface-2)",
                     color: active ? "#fff" : "var(--text)",
                     border: `1px solid ${active ? activeColor : "var(--border)"}`,
-                    opacity: segTypeVal === "mixed" && !active ? 0.6 : 1,
+                    opacity: transparentVal !== true && segTypeVal === "mixed" && !active ? 0.6 : 1,
                   }}
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
                 </button>
               );
             })}
+            <button
+              onClick={setAllEmpty}
+              className="flex-1 py-1 rounded text-xs"
+              style={{
+                background: transparentVal === true ? "#22c55e" : "var(--surface-2)",
+                color: transparentVal === true ? "#fff" : "var(--text)",
+                border: `1px solid ${transparentVal === true ? "#22c55e" : "var(--border)"}`,
+                opacity: transparentVal === "mixed" ? 0.6 : 1,
+              }}
+            >
+              Empty
+            </button>
           </div>
         </div>
 

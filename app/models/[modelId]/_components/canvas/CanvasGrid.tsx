@@ -3,12 +3,20 @@
 interface Props {
   zoom: number;
   panOffset: { x: number; y: number };
+  background: "dark" | "blueprint" | "light";
 }
 
-export default function CanvasGrid({ zoom, panOffset }: Props) {
+const GRID_COLORS = {
+  dark: { minor: "var(--border)", minorOpacity: 0.4, major: "var(--border)", majorOpacity: 0.6 },
+  blueprint: { minor: "rgba(160,210,255,0.5)", minorOpacity: 1, major: "rgba(160,210,255,0.85)", majorOpacity: 1 },
+  light: { minor: "rgba(0,0,0,0.18)", minorOpacity: 1, major: "rgba(0,0,0,0.35)", majorOpacity: 1 },
+};
+
+export default function CanvasGrid({ zoom, panOffset, background }: Props) {
   const gridSize = zoom; // 1 unit = zoom pixels
   const minorGrid = gridSize;
   const majorGrid = gridSize * 5;
+  const colors = GRID_COLORS[background];
 
   // Compute pattern offset to align with pan
   const ox = ((panOffset.x % majorGrid) + majorGrid) % majorGrid;
@@ -28,9 +36,9 @@ export default function CanvasGrid({ zoom, panOffset }: Props) {
           <path
             d={`M ${minorGrid} 0 L 0 0 0 ${minorGrid}`}
             fill="none"
-            stroke="var(--border)"
+            stroke={colors.minor}
             strokeWidth="0.3"
-            opacity="0.4"
+            opacity={colors.minorOpacity}
           />
         </pattern>
         <pattern
@@ -45,9 +53,9 @@ export default function CanvasGrid({ zoom, panOffset }: Props) {
           <path
             d={`M ${majorGrid} 0 L 0 0 0 ${majorGrid}`}
             fill="none"
-            stroke="var(--border)"
+            stroke={colors.major}
             strokeWidth="0.6"
-            opacity="0.6"
+            opacity={colors.majorOpacity}
           />
         </pattern>
       </defs>

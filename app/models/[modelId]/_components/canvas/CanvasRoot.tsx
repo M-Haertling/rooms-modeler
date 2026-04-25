@@ -15,6 +15,7 @@ export default function CanvasRoot() {
 
   const zoom = useStore((s) => s.zoom);
   const panOffset = useStore((s) => s.panOffset);
+  const canvasBackground = useStore((s) => s.canvasBackground);
   const setZoom = useStore((s) => s.setZoom);
   const setPanOffset = useStore((s) => s.setPanOffset);
   const setLasso = useStore((s) => s.setLasso);
@@ -136,17 +137,21 @@ export default function CanvasRoot() {
 
   const scale = zoom;
 
+  const bgColor = canvasBackground === "blueprint" ? "#1a3663"
+    : canvasBackground === "light" ? "#f5f5f0"
+    : "var(--surface)";
+
   return (
     <svg
       ref={svgRef}
       className="w-full h-full select-none"
-      style={{ cursor: "crosshair", background: "var(--surface)" }}
+      style={{ cursor: "crosshair", background: bgColor }}
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      <CanvasGrid zoom={zoom} panOffset={panOffset} />
+      <CanvasGrid zoom={zoom} panOffset={panOffset} background={canvasBackground} />
       <g transform={`translate(${panOffset.x}, ${panOffset.y}) scale(${scale})`}>
         <LayerRenderer />
         <SnapIndicator />

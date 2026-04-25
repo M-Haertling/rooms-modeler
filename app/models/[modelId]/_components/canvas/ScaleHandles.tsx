@@ -33,6 +33,7 @@ export default function ScaleHandles({ objectId }: Props) {
     anchor: { x: number; y: number };
     origBbox: { minX: number; minY: number; maxX: number; maxY: number; width: number; height: number };
     origPoints: { id: string; x: number; y: number }[];
+    pad: number;
   } | null>(null);
 
   const rectRef = useRef<SVGRectElement>(null);
@@ -60,7 +61,7 @@ export default function ScaleHandles({ objectId }: Props) {
   if (bbox.width === 0 && bbox.height === 0) return null;
 
   const handleR = 5 / zoom;
-  const pad = 2 / zoom;
+  const pad = 8 / zoom;
 
   const corners: Record<Corner, { x: number; y: number }> = {
     nw: { x: minX - pad, y: minY - pad },
@@ -69,16 +70,25 @@ export default function ScaleHandles({ objectId }: Props) {
     sw: { x: minX - pad, y: maxY + pad },
   };
 
+  // True bbox corners used as scale anchors so points scale correctly
+  const bboxCorners: Record<Corner, { x: number; y: number }> = {
+    nw: { x: minX, y: minY },
+    ne: { x: maxX, y: minY },
+    se: { x: maxX, y: maxY },
+    sw: { x: minX, y: maxY },
+  };
+
   function handlePointerDown(e: React.PointerEvent, corner: Corner) {
     e.stopPropagation();
     pushHistory();
     const opp: Record<Corner, Corner> = { nw: "se", ne: "sw", se: "nw", sw: "ne" };
-    const anchorCorner = corners[opp[corner]];
+    const anchor = bboxCorners[opp[corner]];
     dragState.current = {
       corner,
-      anchor: anchorCorner,
+      anchor,
       origBbox: { ...bbox },
       origPoints: objPoints.map((p) => ({ id: p.id, x: p.x, y: p.y })),
+      pad,
     };
     (e.currentTarget as SVGCircleElement).setPointerCapture(e.pointerId);
   }
@@ -89,12 +99,16 @@ export default function ScaleHandles({ objectId }: Props) {
     const world = screenToWorld(e.clientX, e.clientY);
     if (!world) return;
 
-    const { corner, anchor, origBbox, origPoints } = dragState.current;
+    const { corner, anchor, origBbox, origPoints, pad: p } = dragState.current;
     const dir = CORNER_DIRS[corner];
 
-    // New bounding box dimensions from drag
-    const newW = Math.max(0.01, dir.x > 0 ? world.x - anchor.x : anchor.x - world.x);
-    const newH = Math.max(0.01, dir.y > 0 ? world.y - anchor.y : anchor.y - world.y);
+    // Compensate for visual pad offset so dragging from the handle start position
+    // maps to the true bbox corner (no initial jump)
+    const ax = world.x + (dir.x < 0 ? p : dir.x > 0 ? -p : 0);
+    const ay = world.y + (dir.y < 0 ? p : dir.y > 0 ? -p : 0);
+
+    const newW = Math.max(0.01, dir.x > 0 ? ax - anchor.x : anchor.x - ax);
+    const newH = Math.max(0.01, dir.y > 0 ? ay - anchor.y : anchor.y - ay);
     const origW = Math.max(0.01, origBbox.width);
     const origH = Math.max(0.01, origBbox.height);
 

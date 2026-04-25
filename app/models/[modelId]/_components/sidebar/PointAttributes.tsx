@@ -102,17 +102,30 @@ export default function PointAttributes({ pointIds }: Props) {
     const [A, B] = neighbors;
     const vA = { x: A.x - pt.x, y: A.y - pt.y };
     const vB = { x: B.x - pt.x, y: B.y - pt.y };
+    const lenA = Math.hypot(vA.x, vA.y);
     const lenB = Math.hypot(vB.x, vB.y);
-    if (lenB === 0) return;
+    if (lenA === 0 || lenB === 0) return;
     const cross = vA.x * vB.y - vA.y * vB.x;
     const sign = cross >= 0 ? 1 : -1;
-    const angleA = Math.atan2(vA.y, vA.x);
-    const newAngleB = angleA + sign * (target * Math.PI / 180);
-    const newBx = pt.x + lenB * Math.cos(newAngleB);
-    const newBy = pt.y + lenB * Math.sin(newAngleB);
-    pushHistory();
-    movePoint(B.id, newBx, newBy);
-    await serverUpdatePoint(modelId, B.id, newBx, newBy);
+    const bFullyLocked = B.xLocked && B.yLocked;
+    const aFullyLocked = A.xLocked && A.yLocked;
+    if (!bFullyLocked) {
+      const angleA = Math.atan2(vA.y, vA.x);
+      const newAngleB = angleA + sign * (target * Math.PI / 180);
+      const newBx = pt.x + lenB * Math.cos(newAngleB);
+      const newBy = pt.y + lenB * Math.sin(newAngleB);
+      pushHistory();
+      movePoint(B.id, newBx, newBy);
+      await serverUpdatePoint(modelId, B.id, newBx, newBy);
+    } else if (!aFullyLocked) {
+      const angleB = Math.atan2(vB.y, vB.x);
+      const newAngleA = angleB - sign * (target * Math.PI / 180);
+      const newAx = pt.x + lenA * Math.cos(newAngleA);
+      const newAy = pt.y + lenA * Math.sin(newAngleA);
+      pushHistory();
+      movePoint(A.id, newAx, newAy);
+      await serverUpdatePoint(modelId, A.id, newAx, newAy);
+    }
   }
 
   async function handleDelete() {

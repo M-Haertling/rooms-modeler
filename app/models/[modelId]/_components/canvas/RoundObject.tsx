@@ -206,12 +206,13 @@ export default function RoundObject({ objectId }: Props) {
   if (!obj) return null;
   const isSelected = selectedObjectIds.has(objectId);
   const handleR = 5 / zoom;
+  const handleOutset = 8 / zoom;
 
   const handles: { handle: Handle; hx: number; hy: number }[] = [
-    { handle: "n", hx: cx, hy: cy - ry },
-    { handle: "s", hx: cx, hy: cy + ry },
-    { handle: "e", hx: cx + rx, hy: cy },
-    { handle: "w", hx: cx - rx, hy: cy },
+    { handle: "n", hx: cx, hy: cy - ry - handleOutset },
+    { handle: "s", hx: cx, hy: cy + ry + handleOutset },
+    { handle: "e", hx: cx + rx + handleOutset, hy: cy },
+    { handle: "w", hx: cx - rx - handleOutset, hy: cy },
   ];
 
   return (
