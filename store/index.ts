@@ -66,6 +66,7 @@ interface StoreActions {
     objectTypes: ObjectType[];
   }): void;
 
+  setProjectName(name: string): void;
   setUnit(unit: Unit): void;
   setTemplates(templates: Template[]): void;
 
@@ -179,6 +180,10 @@ export const useStore = create<Store>()(
         s.past = [];
         s.future = [];
       });
+    },
+
+    setProjectName(name) {
+      set((s) => { s.projectName = name; });
     },
 
     setUnit(unit) {

@@ -1,6 +1,6 @@
 import { listModels, createModel } from "@/actions/models";
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import ModelListItem from "./_components/ModelListItem";
 
 export const dynamic = "force-dynamic";
 
@@ -52,18 +52,7 @@ export default async function HomePage() {
         ) : (
           <ul className="space-y-2">
             {models.map((m) => (
-              <li key={m.id}>
-                <Link
-                  href={`/models/${m.id}`}
-                  className="flex items-center justify-between rounded-lg border px-4 py-3 transition-colors hover:border-[var(--accent)]"
-                  style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-                >
-                  <span className="font-medium text-sm">{m.name}</span>
-                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {new Date(m.updatedAt).toLocaleDateString()}
-                  </span>
-                </Link>
-              </li>
+              <ModelListItem key={m.id} id={m.id} name={m.name} updatedAt={m.updatedAt} />
             ))}
           </ul>
         )}
