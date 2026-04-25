@@ -5,7 +5,7 @@ import { useStore } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import { updateSegment, updatePoint, splitSegment } from "@/actions/objects";
 import { distance, normalize, add, scale, subtract } from "@/lib/geometry";
-import { formatLength, convertFromFeet, convertToFeet, unitLabel } from "@/lib/units";
+import { formatLength, splitLengthFromFeet, compoundLengthToFeet } from "@/lib/units";
 import PanelSection from "./PanelSection";
 
 interface Props { segmentIds: string[] }
@@ -25,7 +25,8 @@ export default function SegmentAttributes({ segmentIds }: Props) {
   const splitSegmentInStore = useStore((s) => s.splitSegmentInStore);
   const pushHistory = useStore((s) => s.pushHistory);
 
-  const [lengthInput, setLengthInput] = useState("");
+  const [lengthFt, setLengthFt] = useState("0");
+  const [lengthIn, setLengthIn] = useState("0");
   const [editingLength, setEditingLength] = useState(false);
   const [angleInput, setAngleInput] = useState("");
   const [editingAngle, setEditingAngle] = useState(false);
@@ -109,7 +110,9 @@ export default function SegmentAttributes({ segmentIds }: Props) {
 
   async function applyLength() {
     if (!single || !ptA || !ptB || len === null) return;
-    const newLen = convertToFeet(parseFloat(lengthInput), unit);
+    const primary = parseFloat(lengthFt) || 0;
+    const secondary = parseFloat(lengthIn) || 0;
+    const newLen = compoundLengthToFeet(primary, secondary, unit);
     if (isNaN(newLen) || newLen <= 0) return;
 
     const bFullyLocked = ptB.xLocked && ptB.yLocked;
@@ -167,18 +170,31 @@ export default function SegmentAttributes({ segmentIds }: Props) {
         {single && (
           <>
             <div>
-              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Length ({unitLabel(unit)})</label>
+              <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>Length</label>
               <div className="flex items-center gap-1.5">
                 {editingLength ? (
-                  <input
-                    autoFocus
-                    value={lengthInput}
-                    onChange={(e) => setLengthInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
-                    onBlur={applyLength}
-                    className="flex-1 px-2 py-1 rounded text-xs outline-none"
-                    style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
-                  />
+                  <div
+                    className="flex items-center gap-1 flex-1"
+                    onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) applyLength(); }}
+                  >
+                    <input
+                      autoFocus
+                      value={lengthFt}
+                      onChange={(e) => setLengthFt(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
+                      className="w-0 flex-1 px-2 py-1 rounded text-xs outline-none"
+                      style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+                    />
+                    <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>{unit === "standard" ? "ft" : "m"}</span>
+                    <input
+                      value={lengthIn}
+                      onChange={(e) => setLengthIn(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
+                      className="w-0 flex-1 px-2 py-1 rounded text-xs outline-none"
+                      style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+                    />
+                    <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>{unit === "standard" ? "in" : "cm"}</span>
+                  </div>
                 ) : (
                   <button
                     className="flex-1 text-left px-2 py-1 rounded text-xs"
@@ -188,7 +204,14 @@ export default function SegmentAttributes({ segmentIds }: Props) {
                       border: "1px solid var(--border)",
                       cursor: lengthEditable ? "pointer" : "default",
                     }}
-                    onClick={() => { if (lengthEditable && len !== null) { setLengthInput(convertFromFeet(len, unit).toFixed(1)); setEditingLength(true); } }}
+                    onClick={() => {
+                      if (lengthEditable && len !== null) {
+                        const { primary, secondary } = splitLengthFromFeet(len, unit);
+                        setLengthFt(String(primary));
+                        setLengthIn(String(secondary));
+                        setEditingLength(true);
+                      }
+                    }}
                   >
                     {len !== null ? formatLength(len, unit) : "—"}
                     {bothLocked && <span className="ml-2 opacity-50">(both locked)</span>}

@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useStore } from "@/store";
 import { useShallow } from "zustand/react/shallow";
-import { updateObject, deleteObject, duplicateObject } from "@/actions/objects";
+import { updateObject, deleteObject, duplicateObject, updatePoint } from "@/actions/objects";
 import { saveTemplate } from "@/actions/templates";
 import { rotatePoint, boundingBox } from "@/lib/geometry";
+import { formatLength, splitLengthFromFeet, compoundLengthToFeet } from "@/lib/units";
 import PanelSection from "./PanelSection";
-import type { CanvasObject, CustomDim } from "@/types/canvas";
+import type { CanvasObject, CustomDim, Unit } from "@/types/canvas";
 
 interface Props { objectId: string }
 
@@ -19,9 +20,11 @@ export default function ObjectAttributes({ objectId }: Props) {
   const objTypes = useStore(useShallow((s) => Object.values(s.objectTypes)));
   const modelId = useStore((s) => s.modelId);
   const projectId = useStore((s) => s.projectId);
+  const unit = useStore((s) => s.unit);
   const storeUpdateObject = useStore((s) => s.updateObject);
   const storeAddObject = useStore((s) => s.addObject);
   const storeRemoveObject = useStore((s) => s.removeObject);
+  const movePoint = useStore((s) => s.movePoint);
   const setObjectRotation = useStore((s) => s.setObjectRotation);
   const setTemplates = useStore((s) => s.setTemplates);
   const templates = useStore((s) => s.templates);
@@ -30,11 +33,18 @@ export default function ObjectAttributes({ objectId }: Props) {
   const [templateName, setTemplateName] = useState("");
   const [nameValue, setNameValue] = useState(obj?.name ?? "");
   const [rotationValue, setRotationValue] = useState(String(obj?.rotation ?? 0));
+  const [editingRx, setEditingRx] = useState(false);
+  const [rxFt, setRxFt] = useState("0");
+  const [rxIn, setRxIn] = useState("0");
+  const [editingRy, setEditingRy] = useState(false);
+  const [ryFt, setRyFt] = useState("0");
+  const [ryIn, setRyIn] = useState("0");
   const nameRef = useRef<HTMLInputElement>(null);
   const pendingNameRef = useRef<{ objectId: string; modelId: string; value: string; savedName: string } | null>(null);
 
   useEffect(() => { setNameValue(obj?.name ?? ""); }, [objectId, obj?.name]);
   useEffect(() => { setRotationValue(String(obj?.rotation ?? 0)); }, [objectId, obj?.rotation]);
+  useEffect(() => { setEditingRx(false); setEditingRy(false); }, [objectId]);
 
   const storeUpdateObjectRef = useRef(storeUpdateObject);
   storeUpdateObjectRef.current = storeUpdateObject;
@@ -52,6 +62,33 @@ export default function ObjectAttributes({ objectId }: Props) {
   }, []);
 
   if (!obj) return null;
+
+  // Ellipse geometry — only used when obj.kind === "round"
+  const ellipseBbox = obj.kind === "round" && objPoints.length >= 2
+    ? boundingBox(objPoints.map((p) => ({ x: p.x, y: p.y })))
+    : null;
+  const cx = ellipseBbox?.cx ?? 0;
+  const cy = ellipseBbox?.cy ?? 0;
+  const rx = (ellipseBbox?.width ?? 0) / 2;
+  const ry = (ellipseBbox?.height ?? 0) / 2;
+
+  async function applyRx() {
+    const newRx = compoundLengthToFeet(parseFloat(rxFt) || 0, parseFloat(rxIn) || 0, unit);
+    if (isNaN(newRx) || newRx <= 0) { setEditingRx(false); return; }
+    const cardinals = getCardinalIds(objPoints, cx, cy);
+    if (cardinals.e) { movePoint(cardinals.e, cx + newRx, cy); await updatePoint(modelId, cardinals.e, cx + newRx, cy); }
+    if (cardinals.w) { movePoint(cardinals.w, cx - newRx, cy); await updatePoint(modelId, cardinals.w, cx - newRx, cy); }
+    setEditingRx(false);
+  }
+
+  async function applyRy() {
+    const newRy = compoundLengthToFeet(parseFloat(ryFt) || 0, parseFloat(ryIn) || 0, unit);
+    if (isNaN(newRy) || newRy <= 0) { setEditingRy(false); return; }
+    const cardinals = getCardinalIds(objPoints, cx, cy);
+    if (cardinals.n) { movePoint(cardinals.n, cx, cy - newRy); await updatePoint(modelId, cardinals.n, cx, cy - newRy); }
+    if (cardinals.s) { movePoint(cardinals.s, cx, cy + newRy); await updatePoint(modelId, cardinals.s, cx, cy + newRy); }
+    setEditingRy(false);
+  }
 
   function commitName() {
     const trimmed = nameValue.trim();
@@ -83,9 +120,7 @@ export default function ObjectAttributes({ objectId }: Props) {
     }));
     setObjectRotation(objectId, (obj.rotation + degrees + 360) % 360, updatedPoints);
     await updateObject(modelId, objectId, { rotation: (obj.rotation + degrees + 360) % 360 });
-    // Persist updated point positions
     for (const p of updatedPoints) {
-      const { updatePoint } = await import("@/actions/objects");
       await updatePoint(modelId, p.id, p.x, p.y);
     }
   }
@@ -171,6 +206,42 @@ export default function ObjectAttributes({ objectId }: Props) {
           <span className="text-xs" style={{ color: "var(--text)" }}>Show dimensions</span>
           <Toggle value={obj.showDimensions} onChange={() => patch({ showDimensions: !obj.showDimensions })} />
         </div>
+
+        {obj.kind === "round" && (
+          <>
+            <RadiusField
+              label="Radius X"
+              editing={editingRx}
+              primaryVal={rxFt} onPrimaryChange={setRxFt}
+              secondaryVal={rxIn} onSecondaryChange={setRxIn}
+              unit={unit}
+              displayValue={formatLength(rx, unit)}
+              locked={obj.locked}
+              onStartEdit={() => {
+                const { primary, secondary } = splitLengthFromFeet(rx, unit);
+                setRxFt(String(primary)); setRxIn(String(secondary)); setEditingRx(true);
+              }}
+              onApply={applyRx}
+              onCancel={() => setEditingRx(false)}
+            />
+            <RadiusField
+              label="Radius Y"
+              editing={editingRy}
+              primaryVal={ryFt} onPrimaryChange={setRyFt}
+              secondaryVal={ryIn} onSecondaryChange={setRyIn}
+              unit={unit}
+              displayValue={formatLength(ry, unit)}
+              locked={obj.locked}
+              onStartEdit={() => {
+                const { primary, secondary } = splitLengthFromFeet(ry, unit);
+                setRyFt(String(primary)); setRyIn(String(secondary)); setEditingRy(true);
+              }}
+              onApply={applyRy}
+              onCancel={() => setEditingRy(false)}
+            />
+          </>
+        )}
+
         <Field label="Height (3D)">
           <input type="number" defaultValue={obj.height3d ?? ""} onBlur={(e) => patch({ height3d: parseFloat(e.target.value) || null })} className={inputCls} style={inputStyle} placeholder="Optional" />
         </Field>
@@ -295,4 +366,74 @@ function Toggle({ value, onChange }: { value: boolean; onChange: () => void }) {
       <span className="absolute top-0.5 w-4 h-4 rounded-full transition-transform" style={{ background: "#fff", left: value ? "calc(100% - 18px)" : "2px" }} />
     </button>
   );
+}
+
+function RadiusField({
+  label, editing, primaryVal, onPrimaryChange, secondaryVal, onSecondaryChange,
+  unit, displayValue, locked, onStartEdit, onApply, onCancel,
+}: {
+  label: string; editing: boolean;
+  primaryVal: string; onPrimaryChange: (v: string) => void;
+  secondaryVal: string; onSecondaryChange: (v: string) => void;
+  unit: Unit; displayValue: string; locked: boolean;
+  onStartEdit: () => void; onApply: () => void; onCancel: () => void;
+}) {
+  return (
+    <div>
+      <label className="text-xs block mb-1" style={{ color: "var(--text-muted)" }}>{label}</label>
+      <div className="flex items-center gap-1.5">
+        {editing ? (
+          <div
+            className="flex items-center gap-1 flex-1"
+            onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) onApply(); }}
+          >
+            <input
+              autoFocus value={primaryVal} onChange={(e) => onPrimaryChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") onApply(); if (e.key === "Escape") onCancel(); }}
+              className="w-0 flex-1 px-2 py-1 rounded text-xs outline-none"
+              style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+            />
+            <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>{unit === "standard" ? "ft" : "m"}</span>
+            <input
+              value={secondaryVal} onChange={(e) => onSecondaryChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") onApply(); if (e.key === "Escape") onCancel(); }}
+              className="w-0 flex-1 px-2 py-1 rounded text-xs outline-none"
+              style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+            />
+            <span className="text-xs shrink-0" style={{ color: "var(--text-muted)" }}>{unit === "standard" ? "in" : "cm"}</span>
+          </div>
+        ) : (
+          <button
+            disabled={locked}
+            className="flex-1 text-left px-2 py-1 rounded text-xs"
+            style={{
+              background: "var(--surface-2)",
+              color: locked ? "var(--text-muted)" : "var(--text)",
+              border: "1px solid var(--border)",
+              cursor: locked ? "default" : "pointer",
+            }}
+            onClick={onStartEdit}
+          >
+            {displayValue}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function getCardinalIds(
+  pts: Array<{ id: string; x: number; y: number }>,
+  cx: number,
+  cy: number
+): { n?: string; s?: string; e?: string; w?: string } {
+  const ids: { n?: string; s?: string; e?: string; w?: string } = {};
+  for (const p of pts) {
+    const dx = p.x - cx; const dy = p.y - cy;
+    if (Math.abs(dy) > Math.abs(dx) && dy < 0) ids.n = p.id;
+    else if (Math.abs(dy) > Math.abs(dx) && dy > 0) ids.s = p.id;
+    else if (dx > 0) ids.e = p.id;
+    else ids.w = p.id;
+  }
+  return ids;
 }

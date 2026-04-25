@@ -4,7 +4,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useStore } from "@/store";
 import { useShallow } from "zustand/react/shallow";
 import { updatePoint2, updatePoint as serverUpdatePoint, updateSegment } from "@/actions/objects";
-import { formatLength, convertFromFeet, convertToFeet } from "@/lib/units";
+import { formatLength, splitLengthFromFeet, compoundLengthToFeet } from "@/lib/units";
 import { distance, normalize, add, scale, subtract } from "@/lib/geometry";
 
 const TOOLBAR_H = 38;
@@ -317,6 +317,8 @@ function SegmentContent({
 }) {
   const [editingAngle, setEditingAngle] = useState(false);
   const [editingLength, setEditingLength] = useState(false);
+  const [lengthFt, setLengthFt] = useState("0");
+  const [lengthIn, setLengthIn] = useState("0");
 
   const ptA = points[seg.pointAId];
   const ptB = points[seg.pointBId];
@@ -348,8 +350,10 @@ function SegmentContent({
     setEditingAngle(false);
   }
 
-  async function applyLength(raw: string) {
-    const newLen = convertToFeet(parseFloat(raw), unit);
+  async function applyLength() {
+    const primary = parseFloat(lengthFt) || 0;
+    const secondary = parseFloat(lengthIn) || 0;
+    const newLen = compoundLengthToFeet(primary, secondary, unit);
     if (isNaN(newLen) || newLen <= 0) { setEditingLength(false); return; }
     const dir = normalize(subtract({ x: ptB.x, y: ptB.y }, { x: ptA.x, y: ptA.y }));
     if (!(ptB.xLocked && ptB.yLocked)) {
@@ -377,24 +381,40 @@ function SegmentContent({
       </ToggleBtn>
       <Divider />
       {editingLength ? (
-        <input
-          autoFocus type="number" min={0.01} step={0.1}
-          defaultValue={convertFromFeet(len, unit).toFixed(2)}
-          className="w-16 px-1 text-xs text-right outline-none rounded"
-          style={{ background: "var(--surface-3)", color: "var(--text)", border: "1px solid var(--accent)" }}
-          onBlur={(e) => applyLength(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") applyLength((e.target as HTMLInputElement).value);
-            if (e.key === "Escape") setEditingLength(false);
-          }}
-        />
+        <div
+          className="flex items-center gap-0.5"
+          onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) applyLength(); }}
+        >
+          <input
+            autoFocus
+            value={lengthFt}
+            onChange={(e) => setLengthFt(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
+            className="w-10 px-1 text-xs text-right outline-none rounded"
+            style={{ background: "var(--surface-3)", color: "var(--text)", border: "1px solid var(--accent)" }}
+          />
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>{unit === "standard" ? "ft" : "m"}</span>
+          <input
+            value={lengthIn}
+            onChange={(e) => setLengthIn(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") applyLength(); if (e.key === "Escape") setEditingLength(false); }}
+            className="w-10 px-1 text-xs text-right outline-none rounded"
+            style={{ background: "var(--surface-3)", color: "var(--text)", border: "1px solid var(--accent)" }}
+          />
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>{unit === "standard" ? "in" : "cm"}</span>
+        </div>
       ) : (
         <button
           disabled={bothLocked}
           className="px-2 text-xs rounded"
           style={{ color: "var(--text-muted)", opacity: bothLocked ? 0.4 : 1 }}
           title={bothLocked ? "Both endpoints locked" : "Length — click to edit"}
-          onClick={() => setEditingLength(true)}
+          onClick={() => {
+            const { primary, secondary } = splitLengthFromFeet(len, unit);
+            setLengthFt(String(primary));
+            setLengthIn(String(secondary));
+            setEditingLength(true);
+          }}
         >
           {formatLength(len, unit)}
         </button>
