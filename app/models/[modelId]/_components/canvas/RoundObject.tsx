@@ -4,6 +4,7 @@ import { useRef, useCallback } from "react";
 import { useStore } from "@/store";
 import { updatePoint as serverUpdatePoint } from "@/actions/objects";
 import { boundingBox, distance } from "@/lib/geometry";
+import { formatLength } from "@/lib/units";
 
 interface Props {
   objectId: string;
@@ -17,6 +18,7 @@ export default function RoundObject({ objectId }: Props) {
   const allPoints = useStore((s) => s.points);
   const zoom = useStore((s) => s.zoom);
   const panOffset = useStore((s) => s.panOffset);
+  const unit = useStore((s) => s.unit);
   const modelId = useStore((s) => s.modelId);
   const movePoint = useStore((s) => s.movePoint);
   const selectObject = useStore((s) => s.selectObject);
@@ -230,11 +232,71 @@ export default function RoundObject({ objectId }: Props) {
         fillOpacity={obj.fillEnabled ? obj.fillOpacity : 0}
         stroke={obj.lineColor}
         strokeWidth={obj.lineThickness / 50}
-        style={{ cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
+        style={{ cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none", pointerEvents: "all" }}
         onPointerDown={handleBodyPointerDown}
         onPointerMove={handleBodyPointerMove}
         onPointerUp={handleBodyPointerUp}
       />
+
+      {/* Dimension labels */}
+      {obj.showDimensions && (() => {
+        const fs = 11 / zoom;
+        const offset = 8 / zoom;
+        const wLabel = formatLength(rx * 2, unit);
+        const hLabel = formatLength(ry * 2, unit);
+        const isCircle = Math.abs(rx - ry) < 0.001;
+        return (
+          <>
+            <text
+              x={cx} y={cy - ry - offset}
+              fontSize={fs}
+              textAnchor="middle"
+              dominantBaseline="auto"
+              fill={obj.lineColor}
+              stroke="var(--surface)"
+              strokeWidth={3 / zoom}
+              paintOrder="stroke"
+              style={{ pointerEvents: "none" }}
+            >
+              {isCircle ? `⌀ ${wLabel}` : wLabel}
+            </text>
+            {!isCircle && (
+              <g transform={`translate(${cx + rx + offset},${cy}) rotate(90)`} style={{ pointerEvents: "none" }}>
+                <text
+                  x={0} y={0}
+                  fontSize={fs}
+                  textAnchor="middle"
+                  dominantBaseline="auto"
+                  fill={obj.lineColor}
+                  stroke="var(--surface)"
+                  strokeWidth={3 / zoom}
+                  paintOrder="stroke"
+                >
+                  {hLabel}
+                </text>
+              </g>
+            )}
+          </>
+        );
+      })()}
+
+      {/* Name label */}
+      {obj.showName && obj.name && (
+        <text
+          x={cx} y={cy - ry - (obj.showDimensions ? 22 : 8) / zoom}
+          fontSize={11 / zoom}
+          textAnchor="middle"
+          dominantBaseline="auto"
+          fill={obj.lineColor}
+          stroke="var(--surface)"
+          strokeWidth={3 / zoom}
+          paintOrder="stroke"
+          style={{ pointerEvents: "none" }}
+        >
+          {obj.name}
+        </text>
+      )}
+
       {isSelected && handles.map(({ handle, hx, hy }) => {
         const ptId = objPoints[handles.findIndex((h) => h.handle === handle)]?.id;
         return (

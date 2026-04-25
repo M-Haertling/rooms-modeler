@@ -57,6 +57,7 @@ export interface CanvasObject {
   rotation: number;
   sortOrder: number;
   showDimensions: boolean;
+  showName: boolean;
   fillEnabled: boolean;
   fillOpacity: number;
   hidden: boolean;

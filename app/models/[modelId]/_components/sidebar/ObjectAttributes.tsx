@@ -39,12 +39,18 @@ export default function ObjectAttributes({ objectId }: Props) {
   const [editingRy, setEditingRy] = useState(false);
   const [ryFt, setRyFt] = useState("0");
   const [ryIn, setRyIn] = useState("0");
+  const [editingW, setEditingW] = useState(false);
+  const [wFt, setWFt] = useState("0");
+  const [wIn, setWIn] = useState("0");
+  const [editingH, setEditingH] = useState(false);
+  const [hFt, setHFt] = useState("0");
+  const [hIn, setHIn] = useState("0");
   const nameRef = useRef<HTMLInputElement>(null);
   const pendingNameRef = useRef<{ objectId: string; modelId: string; value: string; savedName: string } | null>(null);
 
   useEffect(() => { setNameValue(obj?.name ?? ""); }, [objectId, obj?.name]);
   useEffect(() => { setRotationValue(String(obj?.rotation ?? 0)); }, [objectId, obj?.rotation]);
-  useEffect(() => { setEditingRx(false); setEditingRy(false); }, [objectId]);
+  useEffect(() => { setEditingRx(false); setEditingRy(false); setEditingW(false); setEditingH(false); }, [objectId]);
 
   const storeUpdateObjectRef = useRef(storeUpdateObject);
   storeUpdateObjectRef.current = storeUpdateObject;
@@ -72,6 +78,15 @@ export default function ObjectAttributes({ objectId }: Props) {
   const rx = (ellipseBbox?.width ?? 0) / 2;
   const ry = (ellipseBbox?.height ?? 0) / 2;
 
+  // Bounding box geometry — only used when obj.kind === "standard"
+  const standardBbox = obj.kind === "standard" && objPoints.length >= 2
+    ? boundingBox(objPoints.map((p) => ({ x: p.x, y: p.y })))
+    : null;
+  const bboxCx = standardBbox?.cx ?? 0;
+  const bboxCy = standardBbox?.cy ?? 0;
+  const bboxW = standardBbox?.width ?? 0;
+  const bboxH = standardBbox?.height ?? 0;
+
   async function applyRx() {
     const newRx = compoundLengthToFeet(parseFloat(rxFt) || 0, parseFloat(rxIn) || 0, unit);
     if (isNaN(newRx) || newRx <= 0) { setEditingRx(false); return; }
@@ -88,6 +103,30 @@ export default function ObjectAttributes({ objectId }: Props) {
     if (cardinals.n) { movePoint(cardinals.n, cx, cy - newRy); await updatePoint(modelId, cardinals.n, cx, cy - newRy); }
     if (cardinals.s) { movePoint(cardinals.s, cx, cy + newRy); await updatePoint(modelId, cardinals.s, cx, cy + newRy); }
     setEditingRy(false);
+  }
+
+  async function applyWidth() {
+    const newW = compoundLengthToFeet(parseFloat(wFt) || 0, parseFloat(wIn) || 0, unit);
+    if (isNaN(newW) || newW <= 0 || !standardBbox || bboxW <= 0) { setEditingW(false); return; }
+    const scaleX = newW / bboxW;
+    for (const p of objPoints) {
+      const newX = bboxCx + (p.x - bboxCx) * scaleX;
+      movePoint(p.id, newX, p.y);
+      await updatePoint(modelId, p.id, newX, p.y);
+    }
+    setEditingW(false);
+  }
+
+  async function applyHeight() {
+    const newH = compoundLengthToFeet(parseFloat(hFt) || 0, parseFloat(hIn) || 0, unit);
+    if (isNaN(newH) || newH <= 0 || !standardBbox || bboxH <= 0) { setEditingH(false); return; }
+    const scaleY = newH / bboxH;
+    for (const p of objPoints) {
+      const newY = bboxCy + (p.y - bboxCy) * scaleY;
+      movePoint(p.id, p.x, newY);
+      await updatePoint(modelId, p.id, p.x, newY);
+    }
+    setEditingH(false);
   }
 
   function commitName() {
@@ -221,6 +260,45 @@ export default function ObjectAttributes({ objectId }: Props) {
           <span className="text-xs" style={{ color: "var(--text)" }}>Show dimensions</span>
           <Toggle value={obj.showDimensions} onChange={() => patch({ showDimensions: !obj.showDimensions })} />
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--text)" }}>Show name</span>
+          <Toggle value={obj.showName} onChange={() => patch({ showName: !obj.showName })} />
+        </div>
+
+        {obj.kind === "standard" && standardBbox && (
+          <>
+            <RadiusField
+              label="Width"
+              editing={editingW}
+              primaryVal={wFt} onPrimaryChange={setWFt}
+              secondaryVal={wIn} onSecondaryChange={setWIn}
+              unit={unit}
+              displayValue={formatLength(bboxW, unit)}
+              locked={obj.locked}
+              onStartEdit={() => {
+                const { primary, secondary } = splitLengthFromFeet(bboxW, unit);
+                setWFt(String(primary)); setWIn(String(secondary)); setEditingW(true);
+              }}
+              onApply={applyWidth}
+              onCancel={() => setEditingW(false)}
+            />
+            <RadiusField
+              label="Height"
+              editing={editingH}
+              primaryVal={hFt} onPrimaryChange={setHFt}
+              secondaryVal={hIn} onSecondaryChange={setHIn}
+              unit={unit}
+              displayValue={formatLength(bboxH, unit)}
+              locked={obj.locked}
+              onStartEdit={() => {
+                const { primary, secondary } = splitLengthFromFeet(bboxH, unit);
+                setHFt(String(primary)); setHIn(String(secondary)); setEditingH(true);
+              }}
+              onApply={applyHeight}
+              onCancel={() => setEditingH(false)}
+            />
+          </>
+        )}
 
         {obj.kind === "round" && (
           <>

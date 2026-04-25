@@ -27,6 +27,7 @@ export function rowToObject(r: DbRow): CanvasObject {
     rotation: r.rotation as number,
     sortOrder: r.sort_order as number,
     showDimensions: Boolean(r.show_dimensions),
+    showName: Boolean(r.show_name),
     fillEnabled: r.fill_enabled === undefined ? true : Boolean(r.fill_enabled),
     fillOpacity: r.fill_opacity !== undefined ? (r.fill_opacity as number) : 1,
     hidden: Boolean(r.hidden),
@@ -183,6 +184,7 @@ export function dbUpdateObject(
   if (fields.rotation !== undefined) { updates.push("rotation = ?"); values.push(fields.rotation); }
   if (fields.sortOrder !== undefined) { updates.push("sort_order = ?"); values.push(fields.sortOrder); }
   if (fields.showDimensions !== undefined) { updates.push("show_dimensions = ?"); values.push(fields.showDimensions ? 1 : 0); }
+  if (fields.showName !== undefined) { updates.push("show_name = ?"); values.push(fields.showName ? 1 : 0); }
   if (fields.fillEnabled !== undefined) { updates.push("fill_enabled = ?"); values.push(fields.fillEnabled ? 1 : 0); }
   if (fields.fillOpacity !== undefined) { updates.push("fill_opacity = ?"); values.push(fields.fillOpacity); }
   if (fields.hidden !== undefined) { updates.push("hidden = ?"); values.push(fields.hidden ? 1 : 0); }

@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS objects (
   sort_order      REAL NOT NULL DEFAULT 0,
   fill_opacity    REAL NOT NULL DEFAULT 1.0,
   hidden          INTEGER NOT NULL DEFAULT 0,
+  show_name       INTEGER NOT NULL DEFAULT 0,
   parent_object_id TEXT REFERENCES objects(id) ON DELETE SET NULL
 );
 

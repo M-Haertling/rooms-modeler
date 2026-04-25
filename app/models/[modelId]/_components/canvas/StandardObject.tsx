@@ -3,7 +3,7 @@
 import { useRef, useCallback } from "react";
 import { useStore } from "@/store";
 import { updatePoint as serverUpdatePoint } from "@/actions/objects";
-import { distance } from "@/lib/geometry";
+import { distance, boundingBox } from "@/lib/geometry";
 import { formatLength } from "@/lib/units";
 import PointHandle from "./PointHandle";
 import SegmentLine from "./SegmentLine";
@@ -218,6 +218,27 @@ export default function StandardObject({ objectId }: Props) {
           </g>
         );
       })}
+
+      {/* Name label */}
+      {obj.showName && obj.name && objPoints.length >= 2 && (() => {
+        const bbox = boundingBox(objPoints.map((p) => ({ x: p.x, y: p.y })));
+        return (
+          <text
+            x={bbox.cx}
+            y={bbox.minY - 8 / zoom}
+            fontSize={11 / zoom}
+            textAnchor="middle"
+            dominantBaseline="auto"
+            fill={obj.lineColor}
+            stroke="var(--surface)"
+            strokeWidth={3 / zoom}
+            paintOrder="stroke"
+            style={{ pointerEvents: "none" }}
+          >
+            {obj.name}
+          </text>
+        );
+      })()}
 
       {/* Point handles */}
       {objPoints.map((p) => (
