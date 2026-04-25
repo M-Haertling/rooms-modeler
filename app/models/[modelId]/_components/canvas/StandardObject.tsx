@@ -47,6 +47,10 @@ export default function StandardObject({ objectId }: Props) {
 
   const polygonPoints = objPoints.map((p) => `${p.x},${p.y}`).join(" ");
   const isObjSelected = selectedObjectIds.has(objectId);
+  const MIN_GRAB_PX = 32;
+  const bbox = objPoints.length >= 2 ? boundingBox(objPoints.map((p) => ({ x: p.x, y: p.y }))) : null;
+  const minScreenDim = bbox ? Math.min(bbox.width, bbox.height) * zoom : Infinity;
+  const grabOnTop = minScreenDim < MIN_GRAB_PX;
 
   const screenToWorld = (clientX: number, clientY: number) => {
     const svg = fillRef.current?.ownerSVGElement;
@@ -142,6 +146,26 @@ export default function StandardObject({ objectId }: Props) {
       }}
       style={{ cursor: "pointer" }}
     >
+      {/* Minimum grab area — bottom z-order for normal objects so segments/handles win; rendered below fill polygon */}
+      {!grabOnTop && objPoints.length >= 3 && bbox && (() => {
+        const grabW = Math.max(bbox.width, MIN_GRAB_PX / zoom);
+        const grabH = Math.max(bbox.height, MIN_GRAB_PX / zoom);
+        return (
+          <rect
+            x={bbox.cx - grabW / 2}
+            y={bbox.cy - grabH / 2}
+            width={grabW}
+            height={grabH}
+            fill="transparent"
+            stroke="none"
+            style={{ pointerEvents: "fill", cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
+            onPointerDown={handleFillPointerDown}
+            onPointerMove={handleFillPointerMove}
+            onPointerUp={handleFillPointerUp}
+          />
+        );
+      })()}
+
       {/* Fill polygon — drag handle */}
       {objPoints.length >= 3 && (
         <polygon
@@ -220,25 +244,22 @@ export default function StandardObject({ objectId }: Props) {
       })}
 
       {/* Name label */}
-      {obj.showName && obj.name && objPoints.length >= 2 && (() => {
-        const bbox = boundingBox(objPoints.map((p) => ({ x: p.x, y: p.y })));
-        return (
-          <text
-            x={bbox.cx}
-            y={bbox.cy}
-            fontSize={11 / zoom}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill={obj.lineColor}
-            stroke="var(--surface)"
-            strokeWidth={3 / zoom}
-            paintOrder="stroke"
-            style={{ pointerEvents: "none" }}
-          >
-            {obj.name}
-          </text>
-        );
-      })()}
+      {obj.showName && obj.name && bbox && (
+        <text
+          x={bbox.cx}
+          y={bbox.cy}
+          fontSize={11 / zoom}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={obj.lineColor}
+          stroke="var(--surface)"
+          strokeWidth={3 / zoom}
+          paintOrder="stroke"
+          style={{ pointerEvents: "none" }}
+        >
+          {obj.name}
+        </text>
+      )}
 
       {/* Point handles */}
       {objPoints.map((p) => (
@@ -249,6 +270,26 @@ export default function StandardObject({ objectId }: Props) {
           isParentSelected={isObjSelected && !selectedPointIds.has(p.id)}
         />
       ))}
+
+      {/* Minimum grab area — top z-order when the object is thin/small so segment hit lines don't cover the body */}
+      {grabOnTop && objPoints.length >= 3 && bbox && (() => {
+        const grabW = Math.max(bbox.width, MIN_GRAB_PX / zoom);
+        const grabH = Math.max(bbox.height, MIN_GRAB_PX / zoom);
+        return (
+          <rect
+            x={bbox.cx - grabW / 2}
+            y={bbox.cy - grabH / 2}
+            width={grabW}
+            height={grabH}
+            fill="transparent"
+            stroke="none"
+            style={{ pointerEvents: "fill", cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
+            onPointerDown={handleFillPointerDown}
+            onPointerMove={handleFillPointerMove}
+            onPointerUp={handleFillPointerUp}
+          />
+        );
+      })()}
     </g>
   );
 }

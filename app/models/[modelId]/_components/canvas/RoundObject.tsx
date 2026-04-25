@@ -207,6 +207,9 @@ export default function RoundObject({ objectId }: Props) {
   const isSelected = selectedObjectIds.has(objectId);
   const handleR = 5 / zoom;
   const handleOutset = 8 / zoom;
+  const MIN_GRAB_PX = 32;
+  const minScreenDim = Math.min(rx * 2, ry * 2) * zoom;
+  const grabOnTop = minScreenDim < MIN_GRAB_PX;
 
   const handles: { handle: Handle; hx: number; hy: number }[] = [
     { handle: "n", hx: cx, hy: cy - ry - handleOutset },
@@ -226,6 +229,26 @@ export default function RoundObject({ objectId }: Props) {
       onPointerUp={handlePointerUp}
       style={{ cursor: "pointer" }}
     >
+      {/* Minimum grab area — bottom z-order for normal ellipses so scale handles win */}
+      {!grabOnTop && (() => {
+        const grabW = Math.max(rx * 2, MIN_GRAB_PX / zoom);
+        const grabH = Math.max(ry * 2, MIN_GRAB_PX / zoom);
+        return (
+          <rect
+            x={cx - grabW / 2}
+            y={cy - grabH / 2}
+            width={grabW}
+            height={grabH}
+            fill="transparent"
+            stroke="none"
+            style={{ pointerEvents: "fill", cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
+            onPointerDown={handleBodyPointerDown}
+            onPointerMove={handleBodyPointerMove}
+            onPointerUp={handleBodyPointerUp}
+          />
+        );
+      })()}
+
       <ellipse
         ref={ellipseRef}
         cx={cx} cy={cy} rx={rx} ry={ry}
@@ -310,6 +333,26 @@ export default function RoundObject({ objectId }: Props) {
           />
         );
       })}
+
+      {/* Minimum grab area — top z-order when ellipse is thin/small */}
+      {grabOnTop && (() => {
+        const grabW = Math.max(rx * 2, MIN_GRAB_PX / zoom);
+        const grabH = Math.max(ry * 2, MIN_GRAB_PX / zoom);
+        return (
+          <rect
+            x={cx - grabW / 2}
+            y={cy - grabH / 2}
+            width={grabW}
+            height={grabH}
+            fill="transparent"
+            stroke="none"
+            style={{ pointerEvents: "fill", cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
+            onPointerDown={handleBodyPointerDown}
+            onPointerMove={handleBodyPointerMove}
+            onPointerUp={handleBodyPointerUp}
+          />
+        );
+      })()}
     </g>
   );
 }
