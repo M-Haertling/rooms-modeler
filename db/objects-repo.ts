@@ -28,6 +28,9 @@ export function rowToObject(r: DbRow): CanvasObject {
     sortOrder: r.sort_order as number,
     showDimensions: Boolean(r.show_dimensions),
     fillEnabled: r.fill_enabled === undefined ? true : Boolean(r.fill_enabled),
+    fillOpacity: r.fill_opacity !== undefined ? (r.fill_opacity as number) : 1,
+    hidden: Boolean(r.hidden),
+    parentObjectId: (r.parent_object_id as string | null) ?? null,
   };
 }
 
@@ -181,6 +184,9 @@ export function dbUpdateObject(
   if (fields.sortOrder !== undefined) { updates.push("sort_order = ?"); values.push(fields.sortOrder); }
   if (fields.showDimensions !== undefined) { updates.push("show_dimensions = ?"); values.push(fields.showDimensions ? 1 : 0); }
   if (fields.fillEnabled !== undefined) { updates.push("fill_enabled = ?"); values.push(fields.fillEnabled ? 1 : 0); }
+  if (fields.fillOpacity !== undefined) { updates.push("fill_opacity = ?"); values.push(fields.fillOpacity); }
+  if (fields.hidden !== undefined) { updates.push("hidden = ?"); values.push(fields.hidden ? 1 : 0); }
+  if (fields.parentObjectId !== undefined) { updates.push("parent_object_id = ?"); values.push(fields.parentObjectId); }
 
   if (updates.length === 0) return;
   values.push(objectId);
@@ -298,15 +304,16 @@ export function dbDuplicateObject(
   db.exec("BEGIN");
   try {
     db.prepare(
-      `INSERT INTO objects (id, project_id, layer_id, name, object_type_id, kind, line_color, fill_color, line_thickness, locked, owned, cost, url, notes, height_3d, custom_dims, rotation, sort_order)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO objects (id, project_id, layer_id, name, object_type_id, kind, line_color, fill_color, line_thickness, locked, owned, cost, url, notes, height_3d, custom_dims, rotation, sort_order, fill_opacity, hidden, parent_object_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       newObjId, v(srcObj.project_id), v(srcObj.layer_id),
       `${srcObj.name} (copy)`,
       v(srcObj.object_type_id), v(srcObj.kind), v(srcObj.line_color), v(srcObj.fill_color),
       v(srcObj.line_thickness), v(srcObj.locked), v(srcObj.owned), v(srcObj.cost),
       v(srcObj.url), v(srcObj.notes), v(srcObj.height_3d), v(srcObj.custom_dims), v(srcObj.rotation),
-      (srcObj.sort_order as number) + 1
+      (srcObj.sort_order as number) + 1,
+      v(srcObj.fill_opacity ?? 1), 0, null
     );
 
     for (const p of srcPoints) {

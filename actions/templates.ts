@@ -122,7 +122,7 @@ export async function instantiateFromTemplate(
         lineThickness: tmpl.line_thickness as number,
         locked: false, owned: false, cost: null, url: null, notes: null,
         height3d: null, customDims: [], rotation: 0, sortOrder: objRow.sort_order as number,
-        showDimensions: false, fillEnabled: true,
+        showDimensions: false, fillEnabled: true, fillOpacity: 1, hidden: false, parentObjectId: null,
       },
       points: createdPoints,
       segments: createdSegments,

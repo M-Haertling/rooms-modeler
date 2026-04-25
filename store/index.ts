@@ -80,6 +80,7 @@ interface StoreActions {
   updateObject(id: string, fields: Partial<CanvasObject>): void;
   removeObject(id: string): void;
   setObjectRotation(id: string, rotation: number, updatedPoints: CanvasPoint[]): void;
+  translateObjectTree(objectId: string, dx: number, dy: number): void;
 
   // Points
   movePoint(id: string, x: number, y: number): void;
@@ -271,6 +272,20 @@ export const useStore = create<Store>()(
         for (const p of updatedPoints) {
           if (s.points[p.id]) { s.points[p.id].x = p.x; s.points[p.id].y = p.y; }
         }
+      });
+    },
+
+    translateObjectTree(objectId, dx, dy) {
+      set((s) => {
+        function translateTree(oid: string) {
+          for (const p of Object.values(s.points)) {
+            if (p.objectId === oid) { p.x += dx; p.y += dy; }
+          }
+          for (const child of Object.values(s.objects)) {
+            if (child.parentObjectId === oid) translateTree(child.id);
+          }
+        }
+        translateTree(objectId);
       });
     },
 

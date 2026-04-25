@@ -14,6 +14,7 @@ interface Props {
 
 export default function StandardObject({ objectId }: Props) {
   const obj = useStore((s) => s.objects[objectId]);
+  const allObjects = useStore((s) => s.objects);
   const allPoints = useStore((s) => s.points);
   const allSegments = useStore((s) => s.segments);
   const selectedObjectIds = useStore((s) => s.selectedObjectIds);
@@ -67,10 +68,22 @@ export default function StandardObject({ objectId }: Props) {
     const world = screenToWorld(e.clientX, e.clientY);
     if (!world) return;
     hasDragged.current = false;
+
+    // Collect own points + all descendant objects' points
+    function collectDescendantPoints(oid: string): { id: string; x: number; y: number }[] {
+      const pts = Object.values(allPoints)
+        .filter((p) => p.objectId === oid)
+        .map((p) => ({ id: p.id, x: p.x, y: p.y }));
+      for (const child of Object.values(allObjects)) {
+        if (child.parentObjectId === oid) pts.push(...collectDescendantPoints(child.id));
+      }
+      return pts;
+    }
+
     dragStart.current = {
       wx: world.x,
       wy: world.y,
-      pts: objPoints.map((p) => ({ id: p.id, x: p.x, y: p.y })),
+      pts: collectDescendantPoints(objectId),
     };
     (e.currentTarget as SVGPolygonElement).setPointerCapture(e.pointerId);
   };
@@ -110,11 +123,13 @@ export default function StandardObject({ objectId }: Props) {
   const handleFillPointerUp = async (e: React.PointerEvent) => {
     if (!dragStart.current) return;
     e.stopPropagation();
+    const movedPtIds = dragStart.current.pts.map((p) => p.id);
     dragStart.current = null;
     setSnapIndicator(null);
     if (!hasDragged.current) return;
-    for (const p of objPoints) {
-      await serverUpdatePoint(modelId, p.id, p.x, p.y);
+    for (const pid of movedPtIds) {
+      const p = allPoints[pid];
+      if (p) await serverUpdatePoint(modelId, p.id, p.x, p.y);
     }
   };
 
@@ -134,7 +149,7 @@ export default function StandardObject({ objectId }: Props) {
           points={polygonPoints}
           fill={obj.fillEnabled ? obj.fillColor : "none"}
           stroke="none"
-          opacity={0.85}
+          fillOpacity={obj.fillEnabled ? obj.fillOpacity : 0}
           style={{ pointerEvents: "visibleFill", cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
           onPointerDown={handleFillPointerDown}
           onPointerMove={handleFillPointerMove}

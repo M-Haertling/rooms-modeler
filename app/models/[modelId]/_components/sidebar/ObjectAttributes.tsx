@@ -196,6 +196,21 @@ export default function ObjectAttributes({ objectId }: Props) {
             </div>
           </Field>
         </div>
+        {obj.fillEnabled && (
+          <Field label="Fill opacity">
+            <div className="flex gap-2 items-center">
+              <input
+                type="range" min={0} max={1} step={0.01}
+                value={obj.fillOpacity}
+                onChange={(e) => patch({ fillOpacity: parseFloat(e.target.value) })}
+                className="flex-1"
+              />
+              <span className="text-xs w-8 text-right" style={{ color: "var(--text-muted)" }}>
+                {Math.round(obj.fillOpacity * 100)}%
+              </span>
+            </div>
+          </Field>
+        )}
         <Field label="Line thickness">
           <input type="range" min={0.5} max={5} step={0.5} value={obj.lineThickness} onChange={(e) => patch({ lineThickness: parseFloat(e.target.value) })} className="w-full" />
         </Field>

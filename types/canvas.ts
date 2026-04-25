@@ -58,6 +58,9 @@ export interface CanvasObject {
   sortOrder: number;
   showDimensions: boolean;
   fillEnabled: boolean;
+  fillOpacity: number;
+  hidden: boolean;
+  parentObjectId: string | null;
 }
 
 export interface CanvasLayer {

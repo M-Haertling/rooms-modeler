@@ -1,0 +1,1 @@
+ALTER TABLE objects ADD COLUMN fill_opacity REAL NOT NULL DEFAULT 1.0;

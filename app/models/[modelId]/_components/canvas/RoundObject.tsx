@@ -13,6 +13,7 @@ type Handle = "n" | "e" | "s" | "w";
 
 export default function RoundObject({ objectId }: Props) {
   const obj = useStore((s) => s.objects[objectId]);
+  const allObjects = useStore((s) => s.objects);
   const allPoints = useStore((s) => s.points);
   const zoom = useStore((s) => s.zoom);
   const panOffset = useStore((s) => s.panOffset);
@@ -128,14 +129,25 @@ export default function RoundObject({ objectId }: Props) {
       const world = screenToWorld(e.clientX, e.clientY);
       if (!world) return;
       hasDragged.current = false;
+
+      function collectDescendantPoints(oid: string): { id: string; x: number; y: number }[] {
+        const pts = Object.values(allPoints)
+          .filter((p) => p.objectId === oid)
+          .map((p) => ({ id: p.id, x: p.x, y: p.y }));
+        for (const child of Object.values(allObjects)) {
+          if (child.parentObjectId === oid) pts.push(...collectDescendantPoints(child.id));
+        }
+        return pts;
+      }
+
       bodyDragStart.current = {
         wx: world.x,
         wy: world.y,
-        pts: objPoints.map((p) => ({ id: p.id, x: p.x, y: p.y })),
+        pts: collectDescendantPoints(objectId),
       };
       (e.currentTarget as SVGEllipseElement).setPointerCapture(e.pointerId);
     },
-    [obj?.locked, pushHistory, screenToWorld, objPoints]
+    [obj?.locked, pushHistory, screenToWorld, objPoints, allPoints, allObjects, objectId]
   );
 
   const handleBodyPointerMove = useCallback(
@@ -177,14 +189,16 @@ export default function RoundObject({ objectId }: Props) {
     async (e: React.PointerEvent) => {
       if (!bodyDragStart.current) return;
       e.stopPropagation();
+      const movedPtIds = bodyDragStart.current.pts.map((p) => p.id);
       bodyDragStart.current = null;
       setSnapIndicator(null);
       if (!hasDragged.current) return;
-      for (const p of objPoints) {
-        await serverUpdatePoint(modelId, p.id, p.x, p.y);
+      for (const pid of movedPtIds) {
+        const p = allPoints[pid];
+        if (p) await serverUpdatePoint(modelId, p.id, p.x, p.y);
       }
     },
-    [modelId, objPoints, setSnapIndicator]
+    [modelId, allPoints, setSnapIndicator]
   );
 
   if (!obj) return null;
@@ -213,9 +227,9 @@ export default function RoundObject({ objectId }: Props) {
         ref={ellipseRef}
         cx={cx} cy={cy} rx={rx} ry={ry}
         fill={obj.fillEnabled ? obj.fillColor : "none"}
+        fillOpacity={obj.fillEnabled ? obj.fillOpacity : 0}
         stroke={obj.lineColor}
         strokeWidth={obj.lineThickness / 50}
-        opacity={0.85}
         style={{ cursor: obj.locked ? "not-allowed" : "grab", touchAction: "none" }}
         onPointerDown={handleBodyPointerDown}
         onPointerMove={handleBodyPointerMove}
