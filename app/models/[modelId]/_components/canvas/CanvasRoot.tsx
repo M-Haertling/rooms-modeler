@@ -8,10 +8,13 @@ import CanvasGrid from "./CanvasGrid";
 import LayerRenderer from "./LayerRenderer";
 import SelectionLasso from "./SelectionLasso";
 import SnapIndicator from "./SnapIndicator";
+import TapeMeasureOverlay from "./TapeMeasureOverlay";
 
 export default function CanvasRoot() {
   const svgRef = useRef<SVGSVGElement>(null);
   const lassoStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isMeasuring = useRef(false);
+  const measureStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const zoom = useStore((s) => s.zoom);
   const panOffset = useStore((s) => s.panOffset);
@@ -25,6 +28,8 @@ export default function CanvasRoot() {
   const addSegmentsToSelection = useStore((s) => s.addSegmentsToSelection);
   const points = useStore((s) => s.points);
   const segments = useStore((s) => s.segments);
+  const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
+  const setTapeMeasure = useStore((s) => s.setTapeMeasure);
 
   const clientToWorld = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -69,8 +74,18 @@ export default function CanvasRoot() {
       }
 
       if (e.button === 0) {
-        clearSelection();
         const world = clientToWorld(e.clientX, e.clientY);
+
+        // Tape measure: active mode OR Ctrl+drag on empty canvas
+        if ((tapeMeasureMode || e.ctrlKey) && world) {
+          isMeasuring.current = true;
+          measureStartRef.current = world;
+          setTapeMeasure({ start: world, end: world });
+          (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
+          return;
+        }
+
+        clearSelection();
         if (world) {
           lassoStartRef.current = world;
           setLasso({ x: world.x, y: world.y, w: 0, h: 0 });
@@ -78,7 +93,7 @@ export default function CanvasRoot() {
         (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
       }
     },
-    [panOffset, clientToWorld, clearSelection, setLasso]
+    [panOffset, clientToWorld, clearSelection, setLasso, tapeMeasureMode, setTapeMeasure]
   );
 
   const handlePointerMove = useCallback(
@@ -88,6 +103,14 @@ export default function CanvasRoot() {
           x: panStart.current.ox + (e.clientX - panStart.current.x),
           y: panStart.current.oy + (e.clientY - panStart.current.y),
         });
+        return;
+      }
+
+      if (isMeasuring.current) {
+        const world = clientToWorld(e.clientX, e.clientY);
+        if (world && measureStartRef.current) {
+          setTapeMeasure({ start: measureStartRef.current, end: world });
+        }
         return;
       }
 
@@ -103,7 +126,7 @@ export default function CanvasRoot() {
         }
       }
     },
-    [setPanOffset, clientToWorld, setLasso]
+    [setPanOffset, clientToWorld, setLasso, setTapeMeasure]
   );
 
   const handlePointerUp = useCallback(
@@ -111,6 +134,12 @@ export default function CanvasRoot() {
       if (isPanning.current) {
         isPanning.current = false;
         panStart.current = null;
+        return;
+      }
+
+      if (isMeasuring.current) {
+        isMeasuring.current = false;
+        // Leave measurement displayed
         return;
       }
 
@@ -145,7 +174,7 @@ export default function CanvasRoot() {
     <svg
       ref={svgRef}
       className="w-full h-full select-none"
-      style={{ cursor: "crosshair", background: bgColor }}
+      style={{ cursor: tapeMeasureMode ? "crosshair" : "default", background: bgColor }}
       onWheel={handleWheel}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -155,6 +184,7 @@ export default function CanvasRoot() {
       <g transform={`translate(${panOffset.x}, ${panOffset.y}) scale(${scale})`}>
         <LayerRenderer />
         <SnapIndicator />
+        <TapeMeasureOverlay />
       </g>
       {lassoRect && <SelectionLasso rect={lassoRect} panOffset={panOffset} zoom={zoom} />}
     </svg>

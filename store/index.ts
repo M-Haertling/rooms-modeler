@@ -4,7 +4,7 @@ import { enableMapSet } from "immer";
 
 enableMapSet();
 import type {
-  CanvasObject, CanvasPoint, CanvasSegment, CanvasLayer, ObjectType, Unit, Template,
+  CanvasObject, CanvasPoint, CanvasSegment, CanvasLayer, LayerConfiguration, ObjectType, Unit, Template,
 } from "@/types/canvas";
 import type { LassoRect } from "@/lib/lasso";
 
@@ -31,6 +31,7 @@ interface StoreState {
   points: Record<string, CanvasPoint>;
   segments: Record<string, CanvasSegment>;
   layers: Record<string, CanvasLayer>;
+  configurations: Record<string, LayerConfiguration>;
   objectTypes: Record<string, ObjectType>;
   templates: Template[];
 
@@ -47,6 +48,9 @@ interface StoreState {
   panOffset: { x: number; y: number };
   snapIndicatorPointId: string | null;
   canvasBackground: "dark" | "blueprint" | "light";
+  tapeMeasureMode: boolean;
+  tapeMeasure: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
+  showPoints: boolean;
 
   // History
   past: CanvasSnapshot[];
@@ -64,6 +68,7 @@ interface StoreActions {
     points: CanvasPoint[];
     segments: CanvasSegment[];
     layers: CanvasLayer[];
+    configurations: LayerConfiguration[];
     objectTypes: ObjectType[];
   }): void;
 
@@ -102,6 +107,11 @@ interface StoreActions {
   updateLayer(id: string, fields: Partial<CanvasLayer>): void;
   removeLayer(id: string): void;
 
+  // Configurations
+  addConfiguration(config: LayerConfiguration): void;
+  removeConfiguration(id: string): void;
+  updateConfiguration(id: string, fields: Partial<LayerConfiguration>): void;
+
   // Object types
   addObjectType(t: ObjectType): void;
   updateObjectType(id: string, name: string): void;
@@ -123,6 +133,9 @@ interface StoreActions {
   setZoom(zoom: number): void;
   setPanOffset(offset: { x: number; y: number }): void;
   setCanvasBackground(bg: "dark" | "blueprint" | "light"): void;
+  setTapeMeasureMode(mode: boolean): void;
+  setTapeMeasure(m: { start: { x: number; y: number }; end: { x: number; y: number } } | null): void;
+  setShowPoints(show: boolean): void;
 }
 
 type Store = StoreState & StoreActions;
@@ -153,6 +166,7 @@ export const useStore = create<Store>()(
     points: {},
     segments: {},
     layers: {},
+    configurations: {},
     objectTypes: {},
     templates: [],
     selectedPointIds: new Set(),
@@ -165,6 +179,9 @@ export const useStore = create<Store>()(
     panOffset: { x: 0, y: 0 },
     snapIndicatorPointId: null,
     canvasBackground: "dark",
+    tapeMeasureMode: false,
+    tapeMeasure: null,
+    showPoints: true,
     past: [],
     future: [],
 
@@ -180,6 +197,7 @@ export const useStore = create<Store>()(
         s.points = toRecord(data.points);
         s.segments = toRecord(data.segments);
         s.layers = toRecord(data.layers);
+        s.configurations = toRecord(data.configurations);
         s.objectTypes = toRecord(data.objectTypes);
         s.past = [];
         s.future = [];
@@ -353,6 +371,21 @@ export const useStore = create<Store>()(
       });
     },
 
+    // ── Configurations ───────────────────────────────────────────────────────
+    addConfiguration(config) {
+      set((s) => { s.configurations[config.id] = config; });
+    },
+
+    removeConfiguration(id) {
+      set((s) => { delete s.configurations[id]; });
+    },
+
+    updateConfiguration(id, fields) {
+      set((s) => {
+        if (s.configurations[id]) Object.assign(s.configurations[id], fields);
+      });
+    },
+
     // ── Object types ─────────────────────────────────────────────────────────
     addObjectType(t) {
       set((s) => { s.objectTypes[t.id] = t; });
@@ -460,6 +493,21 @@ export const useStore = create<Store>()(
 
     setCanvasBackground(bg) {
       set((s) => { s.canvasBackground = bg; });
+    },
+
+    setTapeMeasureMode(mode) {
+      set((s) => {
+        s.tapeMeasureMode = mode;
+        if (!mode) s.tapeMeasure = null;
+      });
+    },
+
+    setTapeMeasure(m) {
+      set((s) => { s.tapeMeasure = m; });
+    },
+
+    setShowPoints(show) {
+      set((s) => { s.showPoints = show; });
     },
   }))
 );

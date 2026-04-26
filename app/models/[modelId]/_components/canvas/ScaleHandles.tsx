@@ -25,6 +25,7 @@ export default function ScaleHandles({ objectId }: Props) {
   const modelId = useStore((s) => s.modelId);
   const movePoint = useStore((s) => s.movePoint);
   const pushHistory = useStore((s) => s.pushHistory);
+  const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
 
   const objPoints = Object.values(allPoints).filter((p) => p.objectId === objectId);
 
@@ -79,6 +80,7 @@ export default function ScaleHandles({ objectId }: Props) {
   };
 
   function handlePointerDown(e: React.PointerEvent, corner: Corner) {
+    if (tapeMeasureMode) return;
     e.stopPropagation();
     pushHistory();
     const opp: Record<Corner, Corner> = { nw: "se", ne: "sw", se: "nw", sw: "ne" };

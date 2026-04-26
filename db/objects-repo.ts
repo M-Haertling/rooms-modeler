@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { nanoid } from "nanoid";
-import type { CanvasObject, CanvasPoint, CanvasSegment, CanvasLayer, ObjectType } from "@/types/canvas";
+import type { CanvasObject, CanvasPoint, CanvasSegment, CanvasLayer, LayerConfiguration, ObjectType } from "@/types/canvas";
 
 type DbRow = Record<string, unknown>;
 type SQLVal = null | bigint | number | string | Uint8Array;
@@ -45,6 +45,7 @@ export function rowToPoint(r: DbRow): CanvasPoint {
     yLocked: Boolean(r.y_locked),
     angleLocked: Boolean(r.angle_locked),
     snapping: Boolean(r.snapping),
+    squareMode: Boolean(r.square_mode),
     sortOrder: r.sort_order as number,
   };
 }
@@ -76,6 +77,7 @@ export function rowToLayer(r: DbRow): CanvasLayer {
     name: r.name as string,
     hidden: Boolean(r.hidden),
     sortOrder: r.sort_order as number,
+    activeConfigurationId: (r.active_configuration_id as string | null) ?? null,
   };
 }
 
@@ -116,7 +118,7 @@ export function dbCreateObject(
     db.prepare(
       "INSERT INTO points (id, object_id, x, y, sort_order) VALUES (?, ?, ?, ?, ?)"
     ).run(pid, objId, params.points[i].x, params.points[i].y, i * 1000);
-    createdPoints.push({ id: pid, objectId: objId, x: params.points[i].x, y: params.points[i].y, xLocked: false, yLocked: false, angleLocked: false, snapping: true, sortOrder: i * 1000 });
+    createdPoints.push({ id: pid, objectId: objId, x: params.points[i].x, y: params.points[i].y, xLocked: false, yLocked: false, angleLocked: false, snapping: true, squareMode: false, sortOrder: i * 1000 });
   }
 
   const createdSegments: CanvasSegment[] = [];
@@ -148,7 +150,7 @@ export function dbUpdatePoint(
 export function dbUpdatePointFields(
   db: DatabaseSync,
   pointId: string,
-  fields: { xLocked?: boolean; yLocked?: boolean; angleLocked?: boolean; snapping?: boolean }
+  fields: { xLocked?: boolean; yLocked?: boolean; angleLocked?: boolean; snapping?: boolean; squareMode?: boolean }
 ): void {
   if (fields.xLocked !== undefined)
     db.prepare("UPDATE points SET x_locked = ? WHERE id = ?").run(fields.xLocked ? 1 : 0, pointId);
@@ -158,6 +160,8 @@ export function dbUpdatePointFields(
     db.prepare("UPDATE points SET angle_locked = ? WHERE id = ?").run(fields.angleLocked ? 1 : 0, pointId);
   if (fields.snapping !== undefined)
     db.prepare("UPDATE points SET snapping = ? WHERE id = ?").run(fields.snapping ? 1 : 0, pointId);
+  if (fields.squareMode !== undefined)
+    db.prepare("UPDATE points SET square_mode = ? WHERE id = ?").run(fields.squareMode ? 1 : 0, pointId);
 }
 
 export function dbUpdateObject(
@@ -254,7 +258,7 @@ export function dbSplitSegment(
   }
 
   return {
-    newPoint: { id: midId, objectId: seg.object_id as string, x: mx, y: my, xLocked: false, yLocked: false, angleLocked: false, snapping: true, sortOrder: newSortOrder },
+    newPoint: { id: midId, objectId: seg.object_id as string, x: mx, y: my, xLocked: false, yLocked: false, angleLocked: false, snapping: true, squareMode: false, sortOrder: newSortOrder },
     segmentA: { id: sidA, objectId: seg.object_id as string, pointAId: seg.point_a_id as string, pointBId: midId, name: null, locked: false, angleLocked: false, transparent: false, showDimensions: false, segmentType: "solid", doorSwingIn: true, doorHingeSide: "left" },
     segmentB: { id: sidB, objectId: seg.object_id as string, pointAId: midId, pointBId: seg.point_b_id as string, name: null, locked: false, angleLocked: false, transparent: false, showDimensions: false, segmentType: "solid", doorSwingIn: true, doorHingeSide: "left" },
   };
@@ -346,4 +350,129 @@ export function dbDuplicateObject(
   const newSegments = (db.prepare("SELECT * FROM segments WHERE object_id = ?").all(newObjId) as DbRow[]).map(rowToSegment);
 
   return { object: rowToObject(newObj), points: newPoints, segments: newSegments };
+}
+
+// ── Layer Configurations ──────────────────────────────────────────────────────
+
+function rowToConfiguration(r: DbRow): LayerConfiguration {
+  return {
+    id: r.id as string,
+    layerId: r.layer_id as string,
+    name: r.name as string,
+    sortOrder: r.sort_order as number,
+  };
+}
+
+export function dbGetConfigurationsForLayer(
+  db: DatabaseSync,
+  layerId: string
+): LayerConfiguration[] {
+  return (db.prepare("SELECT * FROM layer_configurations WHERE layer_id = ? ORDER BY sort_order").all(layerId) as DbRow[]).map(rowToConfiguration);
+}
+
+export function dbGetAllConfigurations(db: DatabaseSync): LayerConfiguration[] {
+  return (db.prepare("SELECT * FROM layer_configurations ORDER BY sort_order").all() as DbRow[]).map(rowToConfiguration);
+}
+
+export function dbCreateConfiguration(
+  db: DatabaseSync,
+  config: LayerConfiguration,
+  pointPositions: { id: string; x: number; y: number }[],
+  objectRotations: { id: string; rotation: number }[]
+): void {
+  db.exec("BEGIN");
+  try {
+    db.prepare(
+      "INSERT INTO layer_configurations (id, layer_id, name, sort_order) VALUES (?, ?, ?, ?)"
+    ).run(config.id, config.layerId, config.name, config.sortOrder);
+
+    const insertPos = db.prepare(
+      "INSERT INTO configuration_point_positions (configuration_id, point_id, x, y) VALUES (?, ?, ?, ?)"
+    );
+    for (const p of pointPositions) {
+      insertPos.run(config.id, p.id, p.x, p.y);
+    }
+
+    const insertRot = db.prepare(
+      "INSERT INTO configuration_object_rotations (configuration_id, object_id, rotation) VALUES (?, ?, ?)"
+    );
+    for (const o of objectRotations) {
+      insertRot.run(config.id, o.id, o.rotation);
+    }
+
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+}
+
+export function dbDeleteConfiguration(db: DatabaseSync, configId: string): void {
+  db.prepare("DELETE FROM layer_configurations WHERE id = ?").run(configId);
+}
+
+export function dbRenameConfiguration(db: DatabaseSync, configId: string, name: string): void {
+  db.prepare("UPDATE layer_configurations SET name = ? WHERE id = ?").run(name, configId);
+}
+
+export function dbSetLayerActiveConfiguration(
+  db: DatabaseSync,
+  layerId: string,
+  configId: string | null
+): void {
+  db.prepare("UPDATE layers SET active_configuration_id = ? WHERE id = ?").run(configId, layerId);
+}
+
+export function dbApplyConfiguration(
+  db: DatabaseSync,
+  configId: string
+): { points: { id: string; x: number; y: number }[]; objects: { id: string; rotation: number }[] } {
+  const points = (db.prepare(
+    "SELECT point_id as id, x, y FROM configuration_point_positions WHERE configuration_id = ?"
+  ).all(configId) as DbRow[]).map((r) => ({
+    id: r.id as string,
+    x: r.x as number,
+    y: r.y as number,
+  }));
+
+  const objects = (db.prepare(
+    "SELECT object_id as id, rotation FROM configuration_object_rotations WHERE configuration_id = ?"
+  ).all(configId) as DbRow[]).map((r) => ({
+    id: r.id as string,
+    rotation: r.rotation as number,
+  }));
+
+  return { points, objects };
+}
+
+export function dbSaveConfiguration(
+  db: DatabaseSync,
+  configId: string,
+  pointPositions: { id: string; x: number; y: number }[],
+  objectRotations: { id: string; rotation: number }[]
+): void {
+  db.exec("BEGIN");
+  try {
+    db.prepare("DELETE FROM configuration_point_positions WHERE configuration_id = ?").run(configId);
+    db.prepare("DELETE FROM configuration_object_rotations WHERE configuration_id = ?").run(configId);
+
+    const insertPos = db.prepare(
+      "INSERT INTO configuration_point_positions (configuration_id, point_id, x, y) VALUES (?, ?, ?, ?)"
+    );
+    for (const p of pointPositions) {
+      insertPos.run(configId, p.id, p.x, p.y);
+    }
+
+    const insertRot = db.prepare(
+      "INSERT INTO configuration_object_rotations (configuration_id, object_id, rotation) VALUES (?, ?, ?)"
+    );
+    for (const o of objectRotations) {
+      insertRot.run(configId, o.id, o.rotation);
+    }
+
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }

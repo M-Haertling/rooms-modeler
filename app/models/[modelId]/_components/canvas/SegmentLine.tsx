@@ -24,6 +24,7 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
   const selectSegment = useStore((s) => s.selectSegment);
   const movePoint = useStore((s) => s.movePoint);
   const pushHistory = useStore((s) => s.pushHistory);
+  const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
   const [hovered, setHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -48,6 +49,7 @@ export default function SegmentLine({ segmentId, isSelected, isParentSelected }:
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      if (tapeMeasureMode) return;
       e.stopPropagation();
       selectSegment(segmentId, e.shiftKey);
       if (seg?.locked) return;

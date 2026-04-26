@@ -14,6 +14,7 @@ export interface CanvasPoint {
   yLocked: boolean;
   angleLocked: boolean;
   snapping: boolean;
+  squareMode: boolean;
   sortOrder: number;
 }
 
@@ -70,6 +71,14 @@ export interface CanvasLayer {
   parentId: string | null;
   name: string;
   hidden: boolean;
+  sortOrder: number;
+  activeConfigurationId: string | null;
+}
+
+export interface LayerConfiguration {
+  id: string;
+  layerId: string;
+  name: string;
   sortOrder: number;
 }
 

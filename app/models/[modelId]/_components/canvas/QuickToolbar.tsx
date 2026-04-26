@@ -234,7 +234,7 @@ function PointContent({
     }
   }
 
-  async function toggle(field: "snapping") {
+  async function toggle(field: "snapping" | "squareMode") {
     const val = !pt[field];
     updatePointStore(pointId, { [field]: val });
     await updatePoint2(modelId, pointId, { [field]: val });
@@ -270,6 +270,9 @@ function PointContent({
       </ToggleBtn>
       <ToggleBtn active={pt.snapping} title={pt.snapping ? "Disable snapping" : "Enable snapping"} onClick={() => toggle("snapping")}>
         <SnapIcon />
+      </ToggleBtn>
+      <ToggleBtn active={pt.squareMode} title={pt.squareMode ? "Disable square mode" : "Enable square mode (90° constraint)"} onClick={() => toggle("squareMode")}>
+        <SquareModeIcon />
       </ToggleBtn>
       {angleDeg !== null && (
         <>
@@ -519,6 +522,15 @@ function DimIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9l3-3 3 3M6 6v12M21 9l-3-3-3 3M18 6v12M3 18h18" />
+    </svg>
+  );
+}
+
+function SquareModeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21V3h18" />
+      <path d="M3 3l9 18" />
     </svg>
   );
 }

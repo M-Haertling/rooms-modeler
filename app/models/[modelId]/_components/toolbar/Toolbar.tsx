@@ -16,6 +16,10 @@ export default function Toolbar() {
   const activeCatalog = useStore((s) => s.activeCatalog);
   const canvasBackground = useStore((s) => s.canvasBackground);
   const setCanvasBackground = useStore((s) => s.setCanvasBackground);
+  const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
+  const setTapeMeasureMode = useStore((s) => s.setTapeMeasureMode);
+  const showPoints = useStore((s) => s.showPoints);
+  const setShowPoints = useStore((s) => s.setShowPoints);
 
   const BG_CYCLE: Array<"dark" | "blueprint" | "light"> = ["dark", "blueprint", "light"];
   const BG_LABELS: Record<string, string> = { dark: "Dark", blueprint: "Blueprint", light: "Light" };
@@ -132,6 +136,40 @@ export default function Toolbar() {
         style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)" }}
       >
         {BG_LABELS[canvasBackground]}
+      </button>
+
+      <div className="w-px h-5" style={{ background: "var(--border)" }} />
+
+      <button
+        onClick={() => setShowPoints(!showPoints)}
+        title={showPoints ? "Hide points" : "Show points"}
+        className="px-2 py-1 text-xs rounded transition-colors"
+        style={{
+          background: showPoints ? "var(--accent)" : "var(--surface-2)",
+          color: "var(--text)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline" }}>
+          <circle cx="12" cy="12" r="3" /><circle cx="4" cy="4" r="2" /><circle cx="20" cy="4" r="2" />
+          <circle cx="4" cy="20" r="2" /><circle cx="20" cy="20" r="2" />
+        </svg>
+      </button>
+      <button
+        onClick={() => setTapeMeasureMode(!tapeMeasureMode)}
+        title={tapeMeasureMode ? "Disable tape measure" : "Enable tape measure (or Ctrl+drag)"}
+        className="px-2 py-1 text-xs rounded transition-colors"
+        style={{
+          background: tapeMeasureMode ? "var(--accent)" : "var(--surface-2)",
+          color: "var(--text)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline" }}>
+          <path d="M2 12h20M2 12l4-4M2 12l4 4M22 12l-4-4M22 12l-4 4" />
+          <line x1="8" y1="9" x2="8" y2="12" /><line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="16" y1="9" x2="16" y2="12" />
+        </svg>
       </button>
 
       <div className="w-px h-5" style={{ background: "var(--border)" }} />

@@ -14,6 +14,7 @@ function rowToLayer(r: DbRow): CanvasLayer {
     name: r.name as string,
     hidden: Boolean(r.hidden),
     sortOrder: r.sort_order as number,
+    activeConfigurationId: (r.active_configuration_id as string | null) ?? null,
   };
 }
 
@@ -28,7 +29,7 @@ export async function createLayer(
   db.prepare(
     "INSERT INTO layers (id, project_id, parent_id, name, sort_order) VALUES (?, ?, ?, ?, ?)"
   ).run(id, projectId, parentId, name, Date.now());
-  return { id, projectId, parentId, name, hidden: false, sortOrder: Date.now() };
+  return { id, projectId, parentId, name, hidden: false, sortOrder: Date.now(), activeConfigurationId: null };
 }
 
 export async function updateLayer(

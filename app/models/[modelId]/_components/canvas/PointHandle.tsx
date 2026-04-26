@@ -24,6 +24,8 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
   const selectPoint = useStore((s) => s.selectPoint);
   const setSnapIndicator = useStore((s) => s.setSnapIndicator);
   const pushHistory = useStore((s) => s.pushHistory);
+  const showPoints = useStore((s) => s.showPoints);
+  const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
 
   const isDragging = useRef(false);
   const circleRef = useRef<SVGCircleElement>(null);
@@ -46,6 +48,7 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      if (tapeMeasureMode) return;
       e.stopPropagation();
       if (pt?.xLocked && pt?.yLocked) return;
       pushHistory();
@@ -66,6 +69,46 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
 
       let { x, y } = world;
 
+      // Square mode: constrain movement so connected segments are axis-aligned
+      if (pt.squareMode) {
+        const connectedSegs = Object.values(allSegments).filter(
+          (seg) => seg.pointAId === pointId || seg.pointBId === pointId
+        );
+        const neighbors = connectedSegs.map((seg) => {
+          const nId = seg.pointAId === pointId ? seg.pointBId : seg.pointAId;
+          return allPoints[nId];
+        }).filter(Boolean) as typeof pt[];
+
+        if (neighbors.length === 1) {
+          const B = neighbors[0];
+          // Snap to H or V from B
+          const distH = Math.abs(y - B.y);
+          const distV = Math.abs(x - B.x);
+          if (distH < distV) { y = B.y; } else { x = B.x; }
+        } else if (neighbors.length === 2) {
+          const B = neighbors[0];
+          const C = neighbors[1];
+          // Two valid right-angle positions: (B.x, C.y) or (C.x, B.y)
+          const optA = { x: B.x, y: C.y };
+          const optB = { x: C.x, y: B.y };
+          const dA = (x - optA.x) ** 2 + (y - optA.y) ** 2;
+          const dB = (x - optB.x) ** 2 + (y - optB.y) ** 2;
+          const chosen = dA <= dB ? optA : optB;
+          x = chosen.x; y = chosen.y;
+        } else if (neighbors.length >= 3) {
+          // Snap x to nearest neighbor x-axis, y to nearest neighbor y-axis
+          let bestX = x, bestXDist = Infinity;
+          let bestY = y, bestYDist = Infinity;
+          for (const n of neighbors) {
+            const dx = Math.abs(x - n.x);
+            const dy = Math.abs(y - n.y);
+            if (dx < bestXDist) { bestXDist = dx; bestX = n.x; }
+            if (dy < bestYDist) { bestYDist = dy; bestY = n.y; }
+          }
+          x = bestX; y = bestY;
+        }
+      }
+
       // Snap to nearby snappable points
       let positionSnapped = false;
       if (pt.snapping) {
@@ -82,8 +125,8 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
         if (!positionSnapped) setSnapIndicator(null);
       }
 
-      // Angle snap to 5-degree increments (skip when position-snapped to another point)
-      if (!positionSnapped) {
+      // Angle snap to 5-degree increments (skip when position-snapped or square-mode active)
+      if (!positionSnapped && !pt.squareMode) {
         const ANGLE_STEP = Math.PI / 36; // 5 degrees
         let bestX = x, bestY = y, bestDist = Infinity;
         for (const seg of Object.values(allSegments)) {
@@ -134,7 +177,7 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
     [modelId, pointId, pt, setSnapIndicator]
   );
 
-  if (!pt) return null;
+  if (!pt || !showPoints) return null;
 
   const r = 5 / zoom;
   const fill = isSelected
@@ -143,6 +186,8 @@ export default function PointHandle({ pointId, isSelected, isParentSelected }: P
     ? "rgba(108,99,255,0.4)"
     : pt.xLocked && pt.yLocked
     ? "#ff7c7c"
+    : pt.squareMode
+    ? "#40c0f0"
     : "var(--surface-2)";
 
   return (

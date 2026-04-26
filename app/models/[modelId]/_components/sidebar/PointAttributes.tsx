@@ -38,8 +38,9 @@ export default function PointAttributes({ pointIds }: Props) {
   const yLocked = getMixed(pts.map((p) => p.yLocked));
   const angleLocked = getMixed(pts.map((p) => p.angleLocked));
   const snapping = getMixed(pts.map((p) => p.snapping));
+  const squareMode = getMixed(pts.map((p) => p.squareMode));
 
-  async function toggleField(field: "xLocked" | "yLocked" | "angleLocked" | "snapping") {
+  async function toggleField(field: "xLocked" | "yLocked" | "angleLocked" | "snapping" | "squareMode") {
     const current = getMixed(pts.map((p) => p[field]));
     const val = current === true ? false : true;
     for (const p of pts) {
@@ -188,6 +189,10 @@ export default function PointAttributes({ pointIds }: Props) {
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs" style={{ color: "var(--text)" }}>Snapping</span>
           <MixedToggle value={snapping} onToggle={() => toggleField("snapping")} color="var(--accent)" />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--text)" }}>Square mode</span>
+          <MixedToggle value={squareMode} onToggle={() => toggleField("squareMode")} color="#40c0f0" />
         </div>
 
         <button

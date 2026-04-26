@@ -12,6 +12,13 @@ import {
   dbUpdateSegment,
   dbSplitSegment,
   dbDuplicateObject,
+  dbGetAllConfigurations,
+  dbCreateConfiguration,
+  dbDeleteConfiguration,
+  dbRenameConfiguration,
+  dbSetLayerActiveConfiguration,
+  dbApplyConfiguration,
+  dbSaveConfiguration,
 } from "../objects-repo";
 
 const SCHEMA = fs.readFileSync(path.join(process.cwd(), "db/schema.sql"), "utf-8");
@@ -323,5 +330,207 @@ describe("dbDuplicateObject", () => {
       expect(dupPointIds.has(seg.pointAId)).toBe(true);
       expect(dupPointIds.has(seg.pointBId)).toBe(true);
     }
+  });
+});
+
+// ── Configuration tests ───────────────────────────���───────────────────────────
+
+const MIGRATION_013 = fs.readFileSync(
+  path.join(process.cwd(), "db/migrations/013_add_configurations.sql"),
+  "utf-8"
+);
+
+function makeDbFull(): DatabaseSync {
+  const db = new DatabaseSync(":memory:");
+  db.exec(SCHEMA);
+  db.exec(MIGRATION_013);
+  return db;
+}
+
+function seedLayer(db: DatabaseSync, layerId: string) {
+  db.prepare(
+    "INSERT INTO layers (id, project_id, name, sort_order) VALUES (?, ?, ?, ?)"
+  ).run(layerId, PROJECT_ID, "Layer 1", 1000);
+}
+
+describe("dbCreateConfiguration / dbGetAllConfigurations", () => {
+  let db: DatabaseSync;
+  const LAYER_ID = "layer-1";
+  let realPointId: string;
+  let realObjectId: string;
+
+  beforeEach(() => {
+    db = makeDbFull();
+    seedProject(db);
+    seedLayer(db, LAYER_ID);
+    const obj = dbCreateObject(db, { projectId: PROJECT_ID, layerId: LAYER_ID, kind: "standard", name: "Obj", points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] });
+    realPointId = obj.points[0].id;
+    realObjectId = obj.object.id;
+  });
+
+  it("creates a configuration and retrieves it", () => {
+    dbCreateConfiguration(db, { id: "cfg-1", layerId: LAYER_ID, name: "Default", sortOrder: 1 }, [], []);
+    const configs = dbGetAllConfigurations(db);
+    expect(configs).toHaveLength(1);
+    expect(configs[0].name).toBe("Default");
+    expect(configs[0].layerId).toBe(LAYER_ID);
+  });
+
+  it("stores point positions", () => {
+    dbCreateConfiguration(db, { id: "cfg-1", layerId: LAYER_ID, name: "A", sortOrder: 1 }, [{ id: realPointId, x: 3.5, y: 7.0 }], []);
+    const row = db.prepare("SELECT x, y FROM configuration_point_positions WHERE configuration_id = ?").get("cfg-1") as { x: number; y: number } | undefined;
+    expect(row?.x).toBe(3.5);
+    expect(row?.y).toBe(7.0);
+  });
+
+  it("stores object rotations", () => {
+    dbCreateConfiguration(db, { id: "cfg-1", layerId: LAYER_ID, name: "A", sortOrder: 1 }, [], [{ id: realObjectId, rotation: 1.57 }]);
+    const row = db.prepare("SELECT rotation FROM configuration_object_rotations WHERE configuration_id = ?").get("cfg-1") as { rotation: number } | undefined;
+    expect(row?.rotation).toBeCloseTo(1.57);
+  });
+});
+
+describe("dbDeleteConfiguration", () => {
+  let db: DatabaseSync;
+  const LAYER_ID = "layer-1";
+
+  beforeEach(() => {
+    db = makeDbFull();
+    seedProject(db);
+    seedLayer(db, LAYER_ID);
+    dbCreateConfiguration(db, { id: "cfg-1", layerId: LAYER_ID, name: "A", sortOrder: 1 }, [], []);
+  });
+
+  it("removes the configuration", () => {
+    dbDeleteConfiguration(db, "cfg-1");
+    expect(dbGetAllConfigurations(db)).toHaveLength(0);
+  });
+});
+
+describe("dbRenameConfiguration", () => {
+  let db: DatabaseSync;
+  const LAYER_ID = "layer-1";
+
+  beforeEach(() => {
+    db = makeDbFull();
+    seedProject(db);
+    seedLayer(db, LAYER_ID);
+    dbCreateConfiguration(db, { id: "cfg-1", layerId: LAYER_ID, name: "Old", sortOrder: 1 }, [], []);
+  });
+
+  it("updates the name", () => {
+    dbRenameConfiguration(db, "cfg-1", "New");
+    const cfg = dbGetAllConfigurations(db)[0];
+    expect(cfg.name).toBe("New");
+  });
+});
+
+describe("dbSetLayerActiveConfiguration", () => {
+  let db: DatabaseSync;
+  const LAYER_ID = "layer-1";
+
+  beforeEach(() => {
+    db = makeDbFull();
+    seedProject(db);
+    seedLayer(db, LAYER_ID);
+    dbCreateConfiguration(db, { id: "cfg-1", layerId: LAYER_ID, name: "A", sortOrder: 1 }, [], []);
+  });
+
+  it("sets active configuration on the layer", () => {
+    dbSetLayerActiveConfiguration(db, LAYER_ID, "cfg-1");
+    const row = db.prepare("SELECT active_configuration_id FROM layers WHERE id = ?").get(LAYER_ID) as { active_configuration_id: string | null };
+    expect(row.active_configuration_id).toBe("cfg-1");
+  });
+
+  it("clears active configuration when set to null", () => {
+    dbSetLayerActiveConfiguration(db, LAYER_ID, "cfg-1");
+    dbSetLayerActiveConfiguration(db, LAYER_ID, null);
+    const row = db.prepare("SELECT active_configuration_id FROM layers WHERE id = ?").get(LAYER_ID) as { active_configuration_id: string | null };
+    expect(row.active_configuration_id).toBeNull();
+  });
+});
+
+describe("dbApplyConfiguration", () => {
+  let db: DatabaseSync;
+  const LAYER_ID = "layer-1";
+  let realPointId: string;
+  let realObjectId: string;
+
+  beforeEach(() => {
+    db = makeDbFull();
+    seedProject(db);
+    seedLayer(db, LAYER_ID);
+    const obj = dbCreateObject(db, { projectId: PROJECT_ID, layerId: LAYER_ID, kind: "standard", name: "Obj", points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] });
+    realPointId = obj.points[0].id;
+    realObjectId = obj.object.id;
+    dbCreateConfiguration(
+      db,
+      { id: "cfg-1", layerId: LAYER_ID, name: "A", sortOrder: 1 },
+      [{ id: realPointId, x: 10, y: 20 }],
+      [{ id: realObjectId, rotation: 0.5 }]
+    );
+  });
+
+  it("returns stored point positions", () => {
+    const result = dbApplyConfiguration(db, "cfg-1");
+    expect(result.points).toHaveLength(1);
+    expect(result.points[0]).toEqual({ id: realPointId, x: 10, y: 20 });
+  });
+
+  it("returns stored object rotations", () => {
+    const result = dbApplyConfiguration(db, "cfg-1");
+    expect(result.objects).toHaveLength(1);
+    expect(result.objects[0].id).toBe(realObjectId);
+    expect(result.objects[0].rotation).toBeCloseTo(0.5);
+  });
+});
+
+describe("dbSaveConfiguration", () => {
+  let db: DatabaseSync;
+  const LAYER_ID = "layer-1";
+  let realPointId: string;
+
+  beforeEach(() => {
+    db = makeDbFull();
+    seedProject(db);
+    seedLayer(db, LAYER_ID);
+    const obj = dbCreateObject(db, { projectId: PROJECT_ID, layerId: LAYER_ID, kind: "standard", name: "Obj", points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] });
+    realPointId = obj.points[0].id;
+    dbCreateConfiguration(db, { id: "cfg-1", layerId: LAYER_ID, name: "A", sortOrder: 1 }, [{ id: realPointId, x: 1, y: 2 }], []);
+  });
+
+  it("replaces stored positions with new values", () => {
+    dbSaveConfiguration(db, "cfg-1", [{ id: realPointId, x: 99, y: 88 }], []);
+    const result = dbApplyConfiguration(db, "cfg-1");
+    expect(result.points[0]).toEqual({ id: realPointId, x: 99, y: 88 });
+  });
+});
+
+describe("square_mode column on points", () => {
+  let db: DatabaseSync;
+
+  beforeEach(() => {
+    db = makeDbFull();
+    seedProject(db);
+  });
+
+  it("defaults to 0", () => {
+    const result = dbCreateObject(db, {
+      projectId: PROJECT_ID, layerId: null, kind: "standard", name: "Box",
+      points: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+    });
+    const row = db.prepare("SELECT square_mode FROM points WHERE id = ?").get(result.points[0].id) as { square_mode: number };
+    expect(row.square_mode).toBe(0);
+    expect(result.points[0].squareMode).toBe(false);
+  });
+
+  it("can be set via dbUpdatePointFields", () => {
+    const result = dbCreateObject(db, {
+      projectId: PROJECT_ID, layerId: null, kind: "standard", name: "Box",
+      points: [{ x: 0, y: 0 }, { x: 1, y: 0 }],
+    });
+    dbUpdatePointFields(db, result.points[0].id, { squareMode: true });
+    const row = db.prepare("SELECT square_mode FROM points WHERE id = ?").get(result.points[0].id) as { square_mode: number };
+    expect(row.square_mode).toBe(1);
   });
 });

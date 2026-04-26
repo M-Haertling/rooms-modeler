@@ -15,7 +15,7 @@ export default async function ModelPage({ params }: Props) {
   const project = await getProject(modelId);
   if (!project) notFound();
 
-  const { objects, points, segments, layers, objectTypes } = await loadProjectData(modelId);
+  const { objects, points, segments, layers, configurations, objectTypes } = await loadProjectData(modelId);
   const templates = await listTemplates(modelId);
 
   return (
@@ -26,6 +26,7 @@ export default async function ModelPage({ params }: Props) {
       points={points}
       segments={segments}
       layers={layers}
+      configurations={configurations}
       objectTypes={objectTypes}
       templates={templates}
     />

@@ -25,6 +25,7 @@ export default function RoundObject({ objectId }: Props) {
   const selectedObjectIds = useStore((s) => s.selectedObjectIds);
   const pushHistory = useStore((s) => s.pushHistory);
   const setSnapIndicator = useStore((s) => s.setSnapIndicator);
+  const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
 
   const SNAP_THRESHOLD = 0.25;
 
@@ -61,6 +62,7 @@ export default function RoundObject({ objectId }: Props) {
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, handle: Handle, pointId: string) => {
       e.stopPropagation();
+      if (tapeMeasureMode) return;
       if (obj?.locked) return;
       pushHistory();
       draggingHandle.current = { handle, pointId };
@@ -125,6 +127,7 @@ export default function RoundObject({ objectId }: Props) {
   const handleBodyPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      if (tapeMeasureMode) return;
       if (obj?.locked || draggingHandle.current) return;
       e.stopPropagation();
       pushHistory();

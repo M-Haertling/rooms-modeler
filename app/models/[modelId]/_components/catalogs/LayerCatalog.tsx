@@ -4,8 +4,15 @@ import { useState, useMemo, useRef } from "react";
 import { useStore } from "@/store";
 import { createLayer, updateLayer, deleteLayer } from "@/actions/layers";
 import { updateObject } from "@/actions/objects";
+import {
+  createConfiguration,
+  deleteConfiguration,
+  renameConfiguration,
+  applyConfiguration,
+  saveConfiguration,
+} from "@/actions/configurations";
 import CatalogHeader from "./CatalogHeader";
-import type { CanvasLayer, CanvasObject } from "@/types/canvas";
+import type { CanvasLayer, CanvasObject, LayerConfiguration } from "@/types/canvas";
 
 // --- Icons ---
 
@@ -54,8 +61,18 @@ interface ObjectDragState {
 
 // --- Main catalog ---
 
+function ConfigIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+    </svg>
+  );
+}
+
 export default function LayerCatalog() {
   const [search, setSearch] = useState("");
+  const [configOpenIds, setConfigOpenIds] = useState<Set<string>>(new Set());
 
   // Layer drag state
   const [layerDraggedId, setLayerDraggedId] = useState<string | null>(null);
@@ -99,6 +116,14 @@ export default function LayerCatalog() {
         .sort((a, b) => b.sortOrder - a.sortOrder || a.name.localeCompare(b.name)),
     [objects]
   );
+
+  function toggleConfig(layerId: string) {
+    setConfigOpenIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(layerId)) next.delete(layerId); else next.add(layerId);
+      return next;
+    });
+  }
 
   async function handleCreate() {
     const layer = await createLayer(modelId, projectId, "New layer");
@@ -239,6 +264,8 @@ export default function LayerCatalog() {
             layerDragState={layerDragState}
             objectDragState={objectDragState}
             ancestorHidden={false}
+            configOpenIds={configOpenIds}
+            onToggleConfig={toggleConfig}
           />
         ))}
         {unassignedObjects.length > 0 && (
@@ -268,6 +295,170 @@ export default function LayerCatalog() {
           <p className="text-xs p-4" style={{ color: "var(--text-muted)" }}>No layers yet.</p>
         )}
       </div>
+    </div>
+  );
+}
+
+// --- Configuration panel ---
+
+function ConfigurationPanel({ layerId, modelId, depth }: { layerId: string; modelId: string; depth: number }) {
+  const configurations = useStore((s) => s.configurations);
+  const layers = useStore((s) => s.layers);
+  const storeAddConfiguration = useStore((s) => s.addConfiguration);
+  const storeRemoveConfiguration = useStore((s) => s.removeConfiguration);
+  const storeUpdateLayer = useStore((s) => s.updateLayer);
+  const pushHistory = useStore((s) => s.pushHistory);
+  const movePoint = useStore((s) => s.movePoint);
+  const updateObject = useStore((s) => s.updateObject);
+
+  const layer = layers[layerId];
+  const layerConfigs = useMemo(
+    () => Object.values(configurations).filter((c) => c.layerId === layerId).sort((a, b) => a.sortOrder - b.sortOrder),
+    [configurations, layerId]
+  );
+
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const newInputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  function startCreate() {
+    setNewName("Config " + (layerConfigs.length + 1));
+    setCreating(true);
+    setTimeout(() => { newInputRef.current?.select(); }, 0);
+  }
+
+  async function commitCreate() {
+    const name = newName.trim();
+    setCreating(false);
+    if (!name) return;
+    const config = await createConfiguration(modelId, layerId, name);
+    storeAddConfiguration(config);
+    storeUpdateLayer(layerId, { activeConfigurationId: config.id });
+  }
+
+  async function handleDelete(configId: string) {
+    storeRemoveConfiguration(configId);
+    if (layer?.activeConfigurationId === configId) {
+      storeUpdateLayer(layerId, { activeConfigurationId: null });
+    }
+    await deleteConfiguration(modelId, configId, layerId);
+  }
+
+  function startRename(config: LayerConfiguration) {
+    setRenamingId(config.id);
+    setRenameName(config.name);
+    setTimeout(() => { renameInputRef.current?.select(); }, 0);
+  }
+
+  async function commitRename() {
+    const name = renameName.trim();
+    const id = renamingId;
+    setRenamingId(null);
+    if (!id || !name) return;
+    await renameConfiguration(modelId, id, name);
+  }
+
+  async function handleApply(configId: string) {
+    if (configId === layer?.activeConfigurationId) return;
+    pushHistory();
+    const result = await applyConfiguration(modelId, layerId, configId);
+    for (const p of result.points) movePoint(p.id, p.x, p.y);
+    for (const o of result.objects) updateObject(o.id, { rotation: o.rotation });
+    storeUpdateLayer(layerId, { activeConfigurationId: configId });
+  }
+
+  async function handleSave(configId: string) {
+    await saveConfiguration(modelId, configId, layerId);
+  }
+
+  const indent = 16 + depth * 12 + 12;
+
+  return (
+    <div
+      className="border-b"
+      style={{ paddingLeft: `${indent}px`, paddingRight: "12px", paddingTop: "8px", paddingBottom: "8px", borderColor: "var(--border)", background: "color-mix(in srgb, var(--surface-2) 60%, transparent)" }}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>Configurations</span>
+        <button onClick={startCreate} className="text-xs" style={{ color: "var(--accent)" }} title="New configuration">+ New</button>
+      </div>
+
+      {layerConfigs.map((config) => {
+        const isActive = layer?.activeConfigurationId === config.id;
+        const isRenaming = renamingId === config.id;
+        return (
+          <div
+            key={config.id}
+            className="flex items-center gap-1.5 rounded px-2 py-1 mb-1"
+            style={{
+              background: isActive ? "color-mix(in srgb, var(--accent) 20%, transparent)" : undefined,
+              outline: isActive ? "1px solid color-mix(in srgb, var(--accent) 40%, transparent)" : undefined,
+              outlineOffset: "-1px",
+            }}
+          >
+            <span
+              className="w-2 h-2 rounded-full shrink-0"
+              style={{ background: isActive ? "var(--accent)" : "var(--text-muted)", opacity: isActive ? 1 : 0.4 }}
+            />
+            {isRenaming ? (
+              <input
+                ref={renameInputRef}
+                value={renameName}
+                onChange={(e) => setRenameName(e.target.value)}
+                onBlur={commitRename}
+                onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenamingId(null); }}
+                className="text-xs flex-1 min-w-0 rounded px-1 outline-none"
+                style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <span
+                className="text-xs flex-1 truncate"
+                style={{ color: "var(--text)", cursor: "pointer" }}
+                onClick={() => handleApply(config.id)}
+                onDoubleClick={() => startRename(config)}
+                title={isActive ? "Active — double-click to rename" : "Click to apply — double-click to rename"}
+              >{config.name}</span>
+            )}
+            {isActive && !isRenaming && (
+              <button
+                onClick={() => handleSave(config.id)}
+                className="text-xs opacity-60 hover:opacity-100 shrink-0"
+                style={{ color: "var(--accent)" }}
+                title="Re-save current positions to this configuration"
+              >↓</button>
+            )}
+            <button
+              onClick={() => handleDelete(config.id)}
+              className="text-xs opacity-50 hover:opacity-100 shrink-0"
+              style={{ color: "var(--danger)" }}
+              title="Delete configuration"
+            >×</button>
+          </div>
+        );
+      })}
+
+      {creating && (
+        <div className="flex items-center gap-1 mt-1">
+          <input
+            ref={newInputRef}
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onBlur={commitCreate}
+            onKeyDown={(e) => { if (e.key === "Enter") commitCreate(); if (e.key === "Escape") setCreating(false); }}
+            placeholder="Configuration name"
+            className="text-xs flex-1 min-w-0 rounded px-1 py-0.5 outline-none"
+            style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--accent)" }}
+          />
+        </div>
+      )}
+
+      {layerConfigs.length === 0 && !creating && (
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>No configurations yet.</p>
+      )}
     </div>
   );
 }
@@ -467,6 +658,7 @@ function LayerRow({
   layerId, depth, modelId, projectId,
   storeUpdateLayer, storeRemoveLayer, storeAddLayer, storeUpdateObject, selectObject,
   allLayers, allObjects, siblings, layerDragState, objectDragState, ancestorHidden,
+  configOpenIds, onToggleConfig,
 }: {
   layerId: string;
   depth: number;
@@ -483,6 +675,8 @@ function LayerRow({
   layerDragState: LayerDragState;
   objectDragState: ObjectDragState;
   ancestorHidden: boolean;
+  configOpenIds: Set<string>;
+  onToggleConfig: (id: string) => void;
 }) {
   const layer = allLayers[layerId];
   const [editing, setEditing] = useState(false);
@@ -619,6 +813,8 @@ function LayerRow({
     layerDragState,
     objectDragState,
     ancestorHidden: effectivelyHidden,
+    configOpenIds,
+    onToggleConfig,
   };
 
   return (
@@ -721,6 +917,14 @@ function LayerRow({
           +
         </button>
         <button
+          onClick={() => onToggleConfig(layerId)}
+          className="shrink-0 flex items-center justify-center px-1.5 py-0.5 rounded opacity-60 hover:opacity-100"
+          style={{ color: configOpenIds.has(layerId) ? "var(--accent)" : "var(--text-muted)" }}
+          title="Configurations"
+        >
+          <ConfigIcon size={13} />
+        </button>
+        <button
           onClick={handleDelete}
           className="text-base px-1.5 py-0.5 rounded opacity-60 hover:opacity-100 leading-none"
           style={{ color: "var(--danger)" }}
@@ -728,6 +932,9 @@ function LayerRow({
           ×
         </button>
       </div>
+      {configOpenIds.has(layerId) && (
+        <ConfigurationPanel layerId={layerId} modelId={modelId} depth={depth} />
+      )}
 
       {!collapsed && layerObjects.map((obj) => (
         <ObjectRow

@@ -3,6 +3,7 @@
 import { getDb, resolveModelPath } from "@/db/client";
 import {
   dbLoadProjectData,
+  dbGetAllConfigurations,
   dbCreateObject,
   dbUpdatePoint,
   dbUpdatePointFields,
@@ -16,7 +17,10 @@ import {
 import type { CanvasObject, CanvasPoint, CanvasSegment } from "@/types/canvas";
 
 export async function loadProjectData(modelId: string) {
-  return dbLoadProjectData(await getDb(resolveModelPath(modelId)));
+  const db = await getDb(resolveModelPath(modelId));
+  const data = dbLoadProjectData(db);
+  const configurations = dbGetAllConfigurations(db);
+  return { ...data, configurations };
 }
 
 export async function createObject(

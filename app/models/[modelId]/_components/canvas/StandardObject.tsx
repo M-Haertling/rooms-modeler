@@ -29,6 +29,7 @@ export default function StandardObject({ objectId }: Props) {
   const pushHistory = useStore((s) => s.pushHistory);
 
   const setSnapIndicator = useStore((s) => s.setSnapIndicator);
+  const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
 
   const fillRef = useRef<SVGPolygonElement>(null);
   const dragStart = useRef<{ wx: number; wy: number; pts: { id: string; x: number; y: number }[] } | null>(null);
@@ -66,6 +67,7 @@ export default function StandardObject({ objectId }: Props) {
 
   const handleFillPointerDown = (e: React.PointerEvent) => {
     if (e.button !== 0) return;
+    if (tapeMeasureMode) return;
     if (obj.locked) return;
     e.stopPropagation();
     pushHistory();

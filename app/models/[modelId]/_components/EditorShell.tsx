@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useStore } from "@/store";
-import type { CanvasObject, CanvasPoint, CanvasSegment, CanvasLayer, ObjectType, Project, Template } from "@/types/canvas";
+import type { CanvasObject, CanvasPoint, CanvasSegment, CanvasLayer, LayerConfiguration, ObjectType, Project, Template } from "@/types/canvas";
 import Editor from "./Editor";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   points: CanvasPoint[];
   segments: CanvasSegment[];
   layers: CanvasLayer[];
+  configurations: LayerConfiguration[];
   objectTypes: ObjectType[];
   templates: Template[];
 }
@@ -30,6 +31,7 @@ export default function EditorShell(props: Props) {
       points: props.points,
       segments: props.segments,
       layers: props.layers,
+      configurations: props.configurations,
       objectTypes: props.objectTypes,
     });
     setTemplates(props.templates);
