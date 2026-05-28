@@ -116,15 +116,16 @@
     * Swap between configurations by choosing it in the menu
     * Create / delete configurations
     * Name / rename configurations
-
-
-* Version control system implementation
-    * 
+* New Feature: Tape Measure
+    * Enable tape measure mode
+    * Click and drag to measure distances
+    * Can also be enabled with ctrl+click and drag
 * Square Mode
     * Points can be set to square mode
     * Allow mass setting if multi-selected
     * In square mode, the angle of the lines for that point must be 90 degree increments of each other
     * This is useful because most of the time, rooms are made up of 90 degree angles
-    
-
 * Enable a toggle to show or hide all points in the model - it is useful to hide the points when just moving around furniture
+
+* Version control system implementation
+    * 

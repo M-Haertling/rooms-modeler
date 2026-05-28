@@ -50,6 +50,7 @@ interface StoreState {
   canvasBackground: "dark" | "blueprint" | "light";
   tapeMeasureMode: boolean;
   tapeMeasure: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
+  tapeMeasures: { start: { x: number; y: number }; end: { x: number; y: number } }[];
   showPoints: boolean;
 
   // History
@@ -135,6 +136,7 @@ interface StoreActions {
   setCanvasBackground(bg: "dark" | "blueprint" | "light"): void;
   setTapeMeasureMode(mode: boolean): void;
   setTapeMeasure(m: { start: { x: number; y: number }; end: { x: number; y: number } } | null): void;
+  setTapeMeasures(measures: { start: { x: number; y: number }; end: { x: number; y: number } }[]): void;
   setShowPoints(show: boolean): void;
 }
 
@@ -181,6 +183,7 @@ export const useStore = create<Store>()(
     canvasBackground: "dark",
     tapeMeasureMode: false,
     tapeMeasure: null,
+    tapeMeasures: [],
     showPoints: true,
     past: [],
     future: [],
@@ -498,12 +501,16 @@ export const useStore = create<Store>()(
     setTapeMeasureMode(mode) {
       set((s) => {
         s.tapeMeasureMode = mode;
-        if (!mode) s.tapeMeasure = null;
+        if (!mode) { s.tapeMeasure = null; s.tapeMeasures = []; }
       });
     },
 
     setTapeMeasure(m) {
       set((s) => { s.tapeMeasure = m; });
+    },
+
+    setTapeMeasures(measures) {
+      set((s) => { s.tapeMeasures = measures; });
     },
 
     setShowPoints(show) {

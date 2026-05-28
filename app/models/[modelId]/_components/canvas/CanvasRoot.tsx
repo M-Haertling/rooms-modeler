@@ -29,7 +29,10 @@ export default function CanvasRoot() {
   const points = useStore((s) => s.points);
   const segments = useStore((s) => s.segments);
   const tapeMeasureMode = useStore((s) => s.tapeMeasureMode);
+  const tapeMeasure = useStore((s) => s.tapeMeasure);
+  const tapeMeasures = useStore((s) => s.tapeMeasures);
   const setTapeMeasure = useStore((s) => s.setTapeMeasure);
+  const setTapeMeasures = useStore((s) => s.setTapeMeasures);
 
   const clientToWorld = useCallback(
     (clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -68,8 +71,9 @@ export default function CanvasRoot() {
         return;
       }
 
-      if (e.target !== svgRef.current && (e.target as SVGElement).tagName !== "rect") {
-        // Hit on a child element — let children handle it
+      // In tape measure mode, shapes have pointer-events:none so all events land on the SVG.
+      // Outside tape mode, let child elements handle their own pointer events.
+      if (!tapeMeasureMode && e.target !== svgRef.current && (e.target as SVGElement).tagName !== "rect") {
         return;
       }
 
@@ -80,6 +84,12 @@ export default function CanvasRoot() {
         if ((tapeMeasureMode || e.ctrlKey) && world) {
           isMeasuring.current = true;
           measureStartRef.current = world;
+          // Shift = accumulate; no shift = clear previous measures
+          if (e.shiftKey) {
+            if (tapeMeasure) setTapeMeasures([...tapeMeasures, tapeMeasure]);
+          } else {
+            setTapeMeasures([]);
+          }
           setTapeMeasure({ start: world, end: world });
           (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
           return;
@@ -93,7 +103,7 @@ export default function CanvasRoot() {
         (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
       }
     },
-    [panOffset, clientToWorld, clearSelection, setLasso, tapeMeasureMode, setTapeMeasure]
+    [panOffset, clientToWorld, clearSelection, setLasso, tapeMeasureMode, tapeMeasure, tapeMeasures, setTapeMeasure, setTapeMeasures]
   );
 
   const handlePointerMove = useCallback(
@@ -181,7 +191,7 @@ export default function CanvasRoot() {
       onPointerUp={handlePointerUp}
     >
       <CanvasGrid zoom={zoom} panOffset={panOffset} background={canvasBackground} />
-      <g transform={`translate(${panOffset.x}, ${panOffset.y}) scale(${scale})`}>
+      <g transform={`translate(${panOffset.x}, ${panOffset.y}) scale(${scale})`} style={tapeMeasureMode ? { pointerEvents: "none" } : undefined}>
         <LayerRenderer />
         <SnapIndicator />
         <TapeMeasureOverlay />

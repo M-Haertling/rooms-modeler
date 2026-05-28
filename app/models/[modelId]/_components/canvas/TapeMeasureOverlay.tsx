@@ -2,15 +2,12 @@
 
 import { useStore } from "@/store";
 import { formatLength } from "@/lib/units";
+import type { Unit } from "@/types/canvas";
 
-export default function TapeMeasureOverlay() {
-  const tapeMeasure = useStore((s) => s.tapeMeasure);
-  const zoom = useStore((s) => s.zoom);
-  const unit = useStore((s) => s.unit);
+type Measure = { start: { x: number; y: number }; end: { x: number; y: number } };
 
-  if (!tapeMeasure) return null;
-
-  const { start, end } = tapeMeasure;
+function MeasureRenderer({ m, zoom, unit }: { m: Measure; zoom: number; unit: Unit }) {
+  const { start, end } = m;
   const dx = end.x - start.x;
   const dy = end.y - start.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -26,7 +23,6 @@ export default function TapeMeasureOverlay() {
   const pad = 4 / zoom;
 
   const label = formatLength(dist, unit);
-  // Approximate text width in world units (rough: ~7px per char at 12px font)
   const approxTextWidth = (label.length * 7) / zoom;
   const bgW = approxTextWidth + pad * 2;
   const bgH = fontSize + pad * 2;
@@ -43,8 +39,6 @@ export default function TapeMeasureOverlay() {
       />
       <circle cx={start.x} cy={start.y} r={r} fill="#f0c040" />
       <circle cx={end.x} cy={end.y} r={r} fill="#f0c040" />
-
-      {/* Label background */}
       <rect
         x={mx - bgW / 2}
         y={my - bgH / 2}
@@ -64,6 +58,24 @@ export default function TapeMeasureOverlay() {
       >
         {label}
       </text>
+    </g>
+  );
+}
+
+export default function TapeMeasureOverlay() {
+  const tapeMeasure = useStore((s) => s.tapeMeasure);
+  const tapeMeasures = useStore((s) => s.tapeMeasures);
+  const zoom = useStore((s) => s.zoom);
+  const unit = useStore((s) => s.unit);
+
+  if (!tapeMeasure && tapeMeasures.length === 0) return null;
+
+  return (
+    <g>
+      {tapeMeasures.map((m, i) => (
+        <MeasureRenderer key={i} m={m} zoom={zoom} unit={unit} />
+      ))}
+      {tapeMeasure && <MeasureRenderer m={tapeMeasure} zoom={zoom} unit={unit} />}
     </g>
   );
 }
